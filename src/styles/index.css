@@ -1,0 +1,48 @@
+/* index.css */
+/* Entry point CSS – import Tailwind v4 và các file cục bộ */
+
+/* Tailwind v4: import thay vì @tailwind directives */
+@import "tailwindcss";
+
+/* Custom design token (dùng @theme trong variables.css) */
+@import "./variables.css";
+
+/* Tiện ích và component classes */
+@import "./utilities.css";
+
+/* ========================
+   Overrides & base styles
+======================== */
+
+html {
+  font-family: var(--font-sans);
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Link không có underline mặc định */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Form element kế thừa font */
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Root chiếm toàn màn hình */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

@@ -1,0 +1,22 @@
+src/presentation/pages/students/student-detail.page.tsx:80:            <button onClick={() => navigate('/students')} className="text-indigo-600 font-medium">
+src/presentation/pages/students/student-detail.page.tsx:97:              onClick={() => navigate('/students')}
+src/presentation/pages/students/student-form.page.tsx:34:          navigate('/students'); 
+src/presentation/pages/students/student-list.page.tsx:47:    navigate('/students/new');
+src/presentation/pages/curriculum/program-detail.page.tsx:85:            onClick={() => navigate("/curriculum/programs")}
+src/presentation/pages/curriculum/program-form.page.tsx:39:        navigate("/curriculum/programs");
+src/presentation/pages/curriculum/program-list.page.tsx:16:    navigate("/curriculum/programs/new");
+src/presentation/pages/students/student-detail.page.tsx:42:    navigate(`/students/${id}/edit`);
+src/presentation/pages/students/student-form.page.tsx:28:        onSuccess: () => navigate(`/students/${id}`),
+src/presentation/pages/students/student-list.page.tsx:39:    navigate(`/students/${studentId}`);
+src/presentation/pages/students/student-list.page.tsx:43:    navigate(`/students/${studentId}/edit`);
+src/presentation/pages/curriculum/program-detail.page.tsx:37:    navigate(`/curriculum/programs/${programId}/edit`);
+src/presentation/pages/curriculum/program-form.page.tsx:42:        navigate(`/curriculum/programs/${programId}`);
+src/presentation/pages/curriculum/program-list.page.tsx:20:    navigate(`/curriculum/programs/${id}`);
+src/presentation/pages/trials/trial-detail.page.tsx:55:    navigate(`/students/${studentId}`);
+src/presentation/pages/trials/trial-detail.page.tsx:85:              <Button variant="secondary" size="sm" onClick={() => navigate(`/trials/${trial.id}/edit`)}>
+src/presentation/pages/trials/trial-form.page.tsx:37:      navigate(`/trials/${trial.id}`, { replace: true });
+src/presentation/pages/trials/trial-form.page.tsx:45:        onSuccess: () => navigate(`/trials/${id}`)
+src/presentation/pages/trials/trial-form.page.tsx:49:        onSuccess: (result: any) => navigate(`/trials/${result.id}`)
+src/presentation/pages/trials/trial-list.page.tsx:82:          onView={(id) => navigate(`/trials/${id}`)}
+src/presentation/pages/trials/trial-list.page.tsx:83:          onEdit={(id) => navigate(`/trials/${id}/edit`)} // Tạm giả định route Edit
+src/presentation/components/trials/trial-table.tsx:53: *   onView={(id) => navigate(`/trials/${id}`)}
