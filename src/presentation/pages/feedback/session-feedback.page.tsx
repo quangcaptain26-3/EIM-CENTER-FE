@@ -48,6 +48,44 @@ export const SessionFeedbackPage = () => {
   const exportJobActions = useFeedbackExportJobActions(session?.classId ?? '');
   const getExportJob = exportJobActions.getJob;
 
+  // BẮT BUỘC đặt mọi hook trước mọi return sớm (tránh "Rendered more hooks than during the previous render").
+  const exportStatusLabel = useMemo(() => {
+    if (!activeExportStatus) return null;
+    if (activeExportStatus === 'queued') return 'Đang xếp hàng';
+    if (activeExportStatus === 'running') return 'Đang xử lý';
+    if (activeExportStatus === 'completed') return 'Hoàn tất';
+    if (activeExportStatus === 'failed') return 'Thất bại';
+    if (activeExportStatus === 'cancelled') return 'Đã hủy';
+    return activeExportStatus;
+  }, [activeExportStatus]);
+
+  useEffect(() => {
+    if (!activeExportJobId || !session?.classId) return;
+    if (activeExportStatus === 'completed' || activeExportStatus === 'failed' || activeExportStatus === 'cancelled') return;
+
+    const timer = window.setInterval(async () => {
+      try {
+        const job = await getExportJob(activeExportJobId);
+        const normalizedStatus = job.status;
+        setActiveExportStatus(normalizedStatus);
+        setActiveExportProgress(job.progress ?? 0);
+        setActiveExportError(job.error ?? null);
+
+        if (normalizedStatus === 'completed') {
+          toastAdapter.success('Báo cáo đã sẵn sàng. Bạn có thể bấm "Tải file".');
+        }
+        if (normalizedStatus === 'failed') {
+          toastAdapter.error(job.error || 'Export thất bại. Bạn có thể thử lại.');
+        }
+      } catch (err) {
+        setActiveExportStatus('failed');
+        setActiveExportError(mapHttpError(err));
+      }
+    }, 2000);
+
+    return () => window.clearInterval(timer);
+  }, [activeExportJobId, activeExportStatus, getExportJob, session?.classId]);
+
   if (!sessionId) {
     return (
       <PageShell title="Quản lý Đánh giá">
@@ -151,43 +189,6 @@ export const SessionFeedbackPage = () => {
       toastAdapter.error(mapHttpError(err));
     }
   };
-
-  useEffect(() => {
-    if (!activeExportJobId || !session?.classId) return;
-    if (activeExportStatus === 'completed' || activeExportStatus === 'failed' || activeExportStatus === 'cancelled') return;
-
-    const timer = window.setInterval(async () => {
-      try {
-        const job = await getExportJob(activeExportJobId);
-        const normalizedStatus = job.status;
-        setActiveExportStatus(normalizedStatus);
-        setActiveExportProgress(job.progress ?? 0);
-        setActiveExportError(job.error ?? null);
-
-        if (normalizedStatus === 'completed') {
-          toastAdapter.success('Báo cáo đã sẵn sàng. Bạn có thể bấm "Tải file".');
-        }
-        if (normalizedStatus === 'failed') {
-          toastAdapter.error(job.error || 'Export thất bại. Bạn có thể thử lại.');
-        }
-      } catch (err) {
-        setActiveExportStatus('failed');
-        setActiveExportError(mapHttpError(err));
-      }
-    }, 2000);
-
-    return () => window.clearInterval(timer);
-  }, [activeExportJobId, activeExportStatus, getExportJob, session?.classId]);
-
-  const exportStatusLabel = useMemo(() => {
-    if (!activeExportStatus) return null;
-    if (activeExportStatus === 'queued') return 'Đang xếp hàng';
-    if (activeExportStatus === 'running') return 'Đang xử lý';
-    if (activeExportStatus === 'completed') return 'Hoàn tất';
-    if (activeExportStatus === 'failed') return 'Thất bại';
-    if (activeExportStatus === 'cancelled') return 'Đã hủy';
-    return activeExportStatus;
-  }, [activeExportStatus]);
 
   const readonlyReason = visibility.readonlyReason;
 

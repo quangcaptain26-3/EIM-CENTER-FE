@@ -44,6 +44,7 @@ export class SessionMapper {
       id: dto.id,
       classId: dto.classId,
       sessionDate: dto.sessionDate,
+      sessionStatus: (dto.sessionStatus as SessionModel["sessionStatus"]) ?? "SCHEDULED",
       unitNo: dto.unitNo,
       lessonNo: dto.lessonNo,
       lessonPattern: dto.lessonPattern ?? null,

@@ -28,6 +28,7 @@ export const mapClassDtoToModel = (dto: ClassResponseDto): ClassModel => {
     room: dto.room,
     capacity: dto.capacity,
     currentSize: dto.currentSize ?? 0,
+    remainingCapacity: dto.remainingCapacity ?? (dto.capacity - (dto.currentSize ?? 0)),
     startDate: dto.startDate,
     status: dto.status,
     createdAt: dto.createdAt,

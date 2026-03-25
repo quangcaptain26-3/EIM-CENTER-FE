@@ -24,6 +24,8 @@ export interface GenerateSessionsDto {
   fromDate?: string;
   weeks?: number;
   untilUnitNo?: number;
+  /** true: xóa toàn bộ buổi hiện có rồi sinh lại (mất feedback gắn buổi). */
+  replaceExisting?: boolean;
 }
 
 /**
@@ -32,6 +34,7 @@ export interface GenerateSessionsDto {
 export interface UpdateSessionDto {
   sessionDate?: string;
   note?: string;
+  sessionStatus?: "SCHEDULED" | "CANCELLED" | "COMPLETED" | "MAKEUP";
   coverTeacherId?: string | null;
 }
 
@@ -45,6 +48,8 @@ export interface SessionDetailDto {
   classId: string;
   /** Thời gian của buổi học (ISO string formanted từ Date của backend) */
   sessionDate: string;
+  /** Trạng thái buổi học */
+  sessionStatus?: string;
   /** Số thứ tự Unit */
   unitNo: number;
   /** Số thứ tự Bài học. LessonNo = 0 quy định là của buổi kiểm tra */

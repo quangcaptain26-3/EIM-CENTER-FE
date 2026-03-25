@@ -206,7 +206,7 @@ export const ClassDetailPage = () => {
               <ClassRosterTab classId={classId!} capacity={classDetail.capacity} currentSize={currentRosterSize} />
             )}
             {activeTab === 'schedules' && (
-              <ClassSchedulesTab classId={classId!} />
+              <ClassSchedulesTab classId={classId!} schedules={classDetail.schedules ?? []} />
             )}
             {activeTab === 'staff' && (
               <ClassStaffTab classId={classId!} defaultStaff={classDetail.staff || []} />

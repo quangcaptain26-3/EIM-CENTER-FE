@@ -58,9 +58,16 @@ export const studentsApi = {
 
   /**
    * Lấy danh sách các lớp ghi danh của 1 học viên
+   * @param includeAttendanceSummary - Khi true, API trả thêm attendanceSummary (absentCount, isAtRisk)
    */
-  listStudentEnrollments: async (studentId: string): Promise<ApiSuccessResponse<EnrollmentResponseDto[]>> => {
-    const response = await apiClient.get(`/students/${studentId}/enrollments`);
+  listStudentEnrollments: async (
+    studentId: string,
+    options?: { includeAttendanceSummary?: boolean }
+  ): Promise<ApiSuccessResponse<EnrollmentResponseDto[]>> => {
+    const params = options?.includeAttendanceSummary
+      ? { includeAttendanceSummary: 'true' }
+      : undefined;
+    const response = await apiClient.get(`/students/${studentId}/enrollments`, { params });
     return response.data;
   },
 

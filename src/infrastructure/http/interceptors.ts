@@ -1,6 +1,11 @@
 // interceptors.ts
 // Gắn logic tự động trước khi gửi Request và sau khi nhận Response từ Backend.
-// Hỗ trợ 401 refresh flow: thử lấy access token mới 1 lần, tránh vòng lặp vô hạn.
+//
+// Các case xử lý lỗi:
+// - 401: Tự động gọi refresh token. Nếu refresh thành công → retry request gốc.
+//        Nếu refresh thất bại (hoặc đã retry rồi _retry=true) → onAuthFail, redirect login.
+// - 403: Redirect sang /forbidden.
+// - Khác: Reject ngay, component/hook xử lý (toast, ErrorState).
 
 import axios, { AxiosError } from 'axios';
 import type { InternalAxiosRequestConfig } from 'axios';
@@ -90,6 +95,12 @@ export const setupInterceptors = () => {
 
     async (error: AxiosError) => {
       const originalRequest = error.config as RetryableRequestConfig | undefined;
+
+      // Xử lý 403: API trả không có quyền → redirect trang Forbidden
+      if (error.response?.status === 403) {
+        window.location.assign('/forbidden');
+        return Promise.reject(error);
+      }
 
       // Chỉ xử lý 401 – các lỗi khác reject ngay
       if (error.response?.status !== 401 || !originalRequest) {

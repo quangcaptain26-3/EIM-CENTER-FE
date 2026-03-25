@@ -37,10 +37,13 @@ export const mapEnrollmentDtoToModel = (dto: EnrollmentResponseDto): EnrollmentM
     id: dto.id,
     studentId: dto.studentId,
     classId: dto.classId,
+    classCode: dto.classCode ?? null,
+    programId: dto.programId ?? null,
     status: dto.status,
     startDate: dto.startDate,
     endDate: dto.endDate,
     createdAt: dto.createdAt,
+    attendanceSummary: dto.attendanceSummary,
   };
 };
 

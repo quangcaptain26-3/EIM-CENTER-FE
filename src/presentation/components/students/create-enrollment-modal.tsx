@@ -1,11 +1,13 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createEnrollmentFormSchema, type CreateEnrollmentFormValues, defaultCreateEnrollmentFormValues } from '@/application/students/forms/enrollment.form';
 import { useCreateEnrollment } from '@/presentation/hooks/students/use-enrollment-mutations';
+import { useClasses } from '@/presentation/hooks/classes/use-classes';
 import { Modal } from '@/shared/ui/modal';
 import { FormInput } from '@/shared/ui/form/form-input';
+import { FormSelect } from '@/shared/ui/form/form-select';
 import { Button } from '@/shared/ui/button';
-import { useEffect } from 'react';
 
 export interface CreateEnrollmentModalProps {
   open: boolean;
@@ -18,6 +20,7 @@ export interface CreateEnrollmentModalProps {
  */
 export const CreateEnrollmentModal = ({ open, onClose, studentId }: CreateEnrollmentModalProps) => {
   const { mutate: createEnrollment, isPending } = useCreateEnrollment(studentId);
+  const { data: classesData } = useClasses({ status: 'ACTIVE', limit: 100 });
 
   const {
     register,
@@ -37,7 +40,11 @@ export const CreateEnrollmentModal = ({ open, onClose, studentId }: CreateEnroll
   }, [open, reset, studentId]);
 
   const onSubmit = (data: CreateEnrollmentFormValues) => {
-    createEnrollment(data, {
+    const payload = {
+      ...data,
+      classId: data.classId?.trim() || null,
+    };
+    createEnrollment(payload, {
       onSuccess: () => onClose(), // Đóng pop-up khi thành công
     });
   };
@@ -59,13 +66,19 @@ export const CreateEnrollmentModal = ({ open, onClose, studentId }: CreateEnroll
       }
     >
       <form id="create-enrollment-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {/* TODO: Sau này làm select autocomplete để gõ/chọn tên lớp. Tạm thời nhập tay classId */}
-        <FormInput
-          label="Mã lớp học (Class ID)"
-          placeholder="Nhập ID lớp..."
-          error={errors.classId?.message}
-          required
+        {/* Chọn lớp từ danh sách — không cần nhập UUID */}
+        <FormSelect
+          label="Mã lớp học"
           {...register('classId')}
+          error={errors.classId?.message}
+          options={[
+            { label: '--- Chưa xếp lớp (tạo ghi danh chờ xếp) ---', value: '' },
+            ...(classesData?.items ?? []).map((c) => ({
+              label: `${c.code} - ${c.name ?? ''}`,
+              value: c.id,
+            })),
+          ]}
+          disabled={!classesData}
         />
 
         <FormInput

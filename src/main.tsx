@@ -9,6 +9,7 @@ import { createRoot } from "react-dom/client";
 import "@/styles/index.css";
 
 import AppProvider from "@/app/providers/app-provider";
+import { ErrorBoundary } from "@/shared/ui/feedback/error-boundary";
 
 // Tìm phần tử root trong index.html và mount ứng dụng
 const rootElement = document.getElementById("root");
@@ -21,7 +22,9 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    {/* AppProvider bọc toàn bộ: Store → Query → Toast → Router */}
-    <AppProvider />
+    {/* ErrorBoundary bắt lỗi render (500, crash) → hiện ErrorState thay vì màn hình trắng */}
+    <ErrorBoundary fallbackMessage="Có lỗi xảy ra, vui lòng thử lại.">
+      <AppProvider />
+    </ErrorBoundary>
   </StrictMode>,
 );

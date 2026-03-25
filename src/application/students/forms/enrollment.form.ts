@@ -6,7 +6,8 @@ import { ENROLLMENT_STATUS_VALUES } from '@/domain/students/models/enrollment.mo
  */
 export const createEnrollmentFormSchema = z.object({
   studentId: z.string().min(1, 'Chưa chọn học viên'),
-  classId: z.string().min(1, 'Chưa chọn lớp học'),
+  // classId có thể rỗng khi chọn "Chưa xếp lớp"
+  classId: z.string(),
   startDate: z.string().min(1, 'Ngày bắt đầu không được để trống'),
 });
 
@@ -25,6 +26,8 @@ export const updateEnrollmentStatusFormSchema = z.object({
  */
 export const transferEnrollmentFormSchema = z.object({
   toClassId: z.string().min(1, 'Chưa chọn lớp đích để chuyển'),
+  /** Ngày hiệu lực (YYYY-MM-DD). Tùy chọn — mặc định hôm nay */
+  effectiveDate: z.string().optional(),
   note: z.string().optional(),
 });
 

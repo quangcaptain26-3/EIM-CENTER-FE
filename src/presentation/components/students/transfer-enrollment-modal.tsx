@@ -3,9 +3,11 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { transferEnrollmentFormSchema, type TransferEnrollmentFormValues } from '@/application/students/forms/enrollment.form';
 import { useTransferEnrollment } from '@/presentation/hooks/students/use-enrollment-mutations';
+import { useClasses } from '@/presentation/hooks/classes/use-classes';
 import type { EnrollmentModel } from '@/domain/students/models/enrollment.model';
 import { Modal } from '@/shared/ui/modal';
 import { FormInput } from '@/shared/ui/form/form-input';
+import { FormSelect } from '@/shared/ui/form/form-select';
 import { Button } from '@/shared/ui/button';
 
 export interface TransferEnrollmentModalProps {
@@ -20,6 +22,12 @@ export interface TransferEnrollmentModalProps {
  */
 export const TransferEnrollmentModal = ({ open, onClose, enrollment, studentId }: TransferEnrollmentModalProps) => {
   const { mutate: transfer, isPending } = useTransferEnrollment(studentId);
+  // Chỉ hiện lớp cùng chương trình và còn chỗ (remaining_capacity > 0)
+  const { data: classesData } = useClasses({
+    status: 'ACTIVE',
+    programId: enrollment?.programId ?? undefined,
+    limit: 100,
+  });
 
   const {
     register,
@@ -28,19 +36,24 @@ export const TransferEnrollmentModal = ({ open, onClose, enrollment, studentId }
     formState: { errors },
   } = useForm<TransferEnrollmentFormValues>({
     resolver: zodResolver(transferEnrollmentFormSchema),
-    defaultValues: { toClassId: '', note: '' },
+    defaultValues: { toClassId: '', effectiveDate: '', note: '' },
   });
 
   useEffect(() => {
     if (open) {
-      reset({ toClassId: '', note: '' });
+      reset({ toClassId: '', effectiveDate: undefined, note: '' });
     }
   }, [open, reset]);
 
   const onSubmit = (data: TransferEnrollmentFormValues) => {
     if (!enrollment) return;
+    const payload = {
+      toClassId: data.toClassId,
+      effectiveDate: data.effectiveDate?.trim() || undefined,
+      note: data.note?.trim() || undefined,
+    };
     transfer(
-      { enrollmentId: enrollment.id, payload: data },
+      { enrollmentId: enrollment.id, payload },
       { onSuccess: () => onClose() }
     );
   };
@@ -58,17 +71,36 @@ export const TransferEnrollmentModal = ({ open, onClose, enrollment, studentId }
       }
     >
       <div className="mb-4 p-3 bg-orange-50 text-orange-800 rounded-md text-sm border border-orange-100">
-        Đang cấu hình chuyển học viên khỏi lớp cũ <strong>{enrollment?.classId.substring(0,8)}...</strong>
+        Đang chuyển học viên khỏi lớp <strong>{enrollment?.classCode ?? enrollment?.classId?.slice(0, 8) ?? '—'}...</strong>
       </div>
-      
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        {/* TODO: Upgrade bằng Select Autocomplete khi có list Class API */}
-        <FormInput
-          label="Mã lớp mới (To Class ID)"
-          placeholder="Nhập chính xác ID lớp chuyển sang..."
-          error={errors.toClassId?.message}
+        {/* Chọn lớp đích từ danh sách — không cần nhập UUID */}
+        <FormSelect
+          label="Mã lớp đích"
           required
           {...register('toClassId')}
+          error={errors.toClassId?.message}
+          options={(classesData?.items ?? [])
+            .filter((c) => c.id !== enrollment?.classId) // Loại lớp hiện tại
+            .filter((c) => {
+              const currentSize = c.currentSize ?? 0;
+              const remaining = (c.capacity ?? 0) - currentSize;
+              return remaining > 0; // Chỉ hiện lớp còn chỗ
+            })
+            .map((c) => ({
+              label: `${c.code} - ${c.name ?? ''} (còn ${(c.capacity ?? 0) - (c.currentSize ?? 0)} chỗ)`,
+              value: c.id,
+            }))}
+          disabled={!classesData}
+        />
+
+        <FormInput
+          label="Ngày hiệu lực (Tùy chọn)"
+          type="date"
+          placeholder="YYYY-MM-DD — để trống = hôm nay"
+          error={errors.effectiveDate?.message}
+          {...register('effectiveDate')}
         />
 
         <FormInput

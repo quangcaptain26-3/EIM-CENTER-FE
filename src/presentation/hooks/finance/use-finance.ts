@@ -58,6 +58,30 @@ export const useInvoice = (id?: string) => {
 };
 
 /**
+ * Hook lấy danh sách trạng thái thanh toán học sinh (đã đóng/chưa đóng theo enrollment+invoice)
+ */
+export const useStudentPaymentStatus = (params?: {
+  paymentStatus?: 'paid' | 'unpaid' | 'partial' | 'overdue' | 'no_invoice';
+  classId?: string;
+  programId?: string;
+  keyword?: string;
+  limit?: number;
+  offset?: number;
+}) => {
+  return useQuery({
+    queryKey: queryKeys.finance.studentPaymentStatus(params as Record<string, unknown>),
+    queryFn: async () => {
+      const res = await import('@/infrastructure/services/finance.api').then((m) =>
+        m.financeApi.listStudentPaymentStatus(params)
+      );
+      const payload = (res as { success: boolean; data: { items: unknown[]; total: number; limit: number; offset: number } }).data;
+      return payload;
+    },
+    placeholderData: keepPreviousData,
+  });
+};
+
+/**
  * Hook lấy tóm tắt tài chính của một học viên
  */
 export const useStudentFinance = (studentId?: string) => {

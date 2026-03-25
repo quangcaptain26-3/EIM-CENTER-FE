@@ -51,15 +51,33 @@ export const mapHttpError = (error: unknown): string => {
       return 'Bạn không còn quyền thao tác buổi học này (có thể đã đổi giáo viên phụ trách). Vui lòng tải lại trang.';
     }
 
+    // R6: Quá hạn chỉnh sửa feedback/điểm
+    if (detailCode === 'FEEDBACK/EDIT_DEADLINE_PASSED') {
+      return 'Đã quá hạn chỉnh sửa (7 ngày sau buổi học). Liên hệ giáo vụ nếu cần sửa.';
+    }
+
     // Ưu tiên 1: message từ body BE { success: false, error: { message } }
     const serverMessage = error.response?.data?.error?.message;
     if (serverMessage) {
       return serverMessage;
     }
 
-    // Ưu tiên 2: không có response → mất kết nối mạng hoặc server không phản hồi
+    // Ưu tiên 2: không có response → mất kết nối, timeout, hoặc server không phản hồi
     if (!error.response) {
+      if (error.code === 'ECONNABORTED') {
+        return 'Yêu cầu quá thời gian chờ. Vui lòng thử lại.';
+      }
       return 'Không thể kết nối tới máy chủ. Vui lòng kiểm tra đường truyền.';
+    }
+
+    // Lỗi 500: fallback thân thiện (đã return serverMessage ở trên nếu có)
+    if (error.response.status >= 500) {
+      return 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.';
+    }
+
+    // 409 Conflict (duplicate)
+    if (error.response.status === 409) {
+      return 'Dữ liệu trùng lặp. Vui lòng kiểm tra lại.';
     }
   }
 

@@ -7,8 +7,12 @@ import type { EnrollmentModel } from '@/domain/students/models/enrollment.model'
  * 1. Fetch danh sách các lịch sử và lớp ghi danh của một sinh viên
  * 2. Map danh sách Enrollment DTOs sang Models Array
  */
-export const listStudentEnrollmentsUseCase = async (studentId: string): Promise<EnrollmentModel[]> => {
-  const result = await studentsApi.listStudentEnrollments(studentId);
-  
+export const listStudentEnrollmentsUseCase = async (
+  studentId: string,
+  options?: { includeAttendanceSummary?: boolean }
+): Promise<EnrollmentModel[]> => {
+  const result = await studentsApi.listStudentEnrollments(studentId, {
+    includeAttendanceSummary: options?.includeAttendanceSummary ?? true,
+  });
   return mapEnrollmentListDtoToModels(result.data);
 };

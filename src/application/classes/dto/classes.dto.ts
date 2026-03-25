@@ -35,6 +35,8 @@ export interface ClassResponseDto {
   capacity: number;
   /** Sĩ số hiện tại (đếm enrollments ACTIVE) */
   currentSize?: number;
+  /** Số chỗ còn trống = capacity - currentSize (tìm lớp còn chỗ) */
+  remainingCapacity?: number;
   startDate: string;
   status: ClassStatus;
   createdAt: string;
@@ -85,6 +87,13 @@ export interface ListClassesResponseDto {
   offset?: number;
 }
 
+/** Một dòng lịch học cố định (class_schedules) — khớp backend createClassBodySchema.schedules */
+export interface CreateClassScheduleItemDto {
+  weekday: number;
+  startTime: string;
+  endTime: string;
+}
+
 /**
  * Payload tạo lớp học
  * Khớp với `CreateClassBody` ở backend.
@@ -97,6 +106,11 @@ export interface CreateClassRequestDto {
   capacity?: number;
   startDate: string;
   status?: ClassStatus;
+  /** Ít nhất 1 dòng để có thể sinh buổi học theo lịch (khuyến nghị khi tạo lớp mới). */
+  schedules?: CreateClassScheduleItemDto[];
+  autoGenerateSessions?: boolean;
+  generateWeeks?: number;
+  generateUntilUnitNo?: number;
 }
 
 /**

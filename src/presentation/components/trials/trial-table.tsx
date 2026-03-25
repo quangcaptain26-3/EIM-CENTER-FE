@@ -190,7 +190,7 @@ export const TrialTable = ({
                       <div className="flex items-center gap-1.5 text-xs text-gray-600">
                         <CalendarClock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                         <span>
-                          {new Date(trial.schedule.trialDate).toLocaleDateString('vi-VN', {
+                          {new Date(trial.schedule.trialDate).toLocaleString('vi-VN', {
                             day: '2-digit',
                             month: '2-digit',
                             year: 'numeric',

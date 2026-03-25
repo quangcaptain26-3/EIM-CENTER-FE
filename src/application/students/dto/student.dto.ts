@@ -1,3 +1,9 @@
+/** Enrollment hiện tại (lớp đang học) — dùng cho search-and-pick khi add vào lớp */
+export type CurrentEnrollmentDto = {
+  classCode: string;
+  programName: string | null;
+};
+
 /**
  * Dữ liệu trả về khi truy vấn một học viên
  */
@@ -12,6 +18,8 @@ export type StudentResponseDto = {
   guardianPhone?: string;
   address?: string;
   createdAt: string;
+  /** Lớp đang học (enrollment ACTIVE) — search-and-pick add vào lớp */
+  currentEnrollment?: CurrentEnrollmentDto | null;
 };
 
 /**

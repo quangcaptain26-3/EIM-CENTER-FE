@@ -11,7 +11,6 @@ import { StudentTable } from '@/presentation/components/students/student-table';
 import { useStudents } from '@/presentation/hooks/students';
 import { useStudentsPermission } from '@/presentation/hooks/students/use-students-permission';
 import { usePagination } from '@/shared/hooks/use-pagination';
-import { useDebounce } from '@/shared/hooks/use-debounce';
 import { useMutation } from '@tanstack/react-query';
 import { studentsApi } from '@/infrastructure/services/students.api';
 import { toastAdapter } from '@/infrastructure/adapters/toast.adapter';
@@ -23,16 +22,14 @@ import { mapHttpError } from '@/infrastructure/http/http-error.mapper';
 export default function StudentListPage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Debounce search để tránh gọi API liên tục khi gõ phím
-  const debouncedSearch = useDebounce(searchTerm, 500);
+  // SearchBox dùng debounceMs=300 nội bộ, searchTerm đã debounced khi onChange
 
   // Pagination hook nội bộ
   const { page, limit, offset, setPage, setLimit } = usePagination({ initialLimit: 10 });
 
   // Gọi API lấy list students từ React Query hook
   const { data, isLoading, isError } = useStudents({
-    search: debouncedSearch,
+    search: searchTerm,
     limit,
     offset,
   });
@@ -42,7 +39,7 @@ export default function StudentListPage() {
   const exportMutation = useMutation({
     mutationFn: () =>
       studentsApi.exportStudentsExcel({
-        search: debouncedSearch || undefined,
+        search: searchTerm || undefined,
         limit: 5000,
       }),
     onMutate: () => {
@@ -121,7 +118,7 @@ export default function StudentListPage() {
               <SearchBox
                 value={searchTerm}
                 onChange={setSearchTerm}
-                placeholder="Tìm theo tên học viên, SĐT, Email..."
+                placeholder="Tìm theo tên, SĐT, email, SĐT phụ huynh..."
               />
             </div>
             {/* Có thể thêm các filter khác tại đây */}

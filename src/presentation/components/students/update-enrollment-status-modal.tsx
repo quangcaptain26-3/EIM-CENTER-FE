@@ -60,7 +60,7 @@ export const UpdateEnrollmentStatusModal = ({ open, onClose, enrollment, student
       }
     >
       <div className="mb-4 p-3 bg-blue-50 text-blue-800 rounded-md text-sm border border-blue-100">
-        Bạn đang cập nhật trạng thái cho lớp <strong>{enrollment?.classId.substring(0,8)}...</strong>
+        Bạn đang cập nhật trạng thái cho lớp <strong>{enrollment?.classCode ?? enrollment?.classId?.slice(0, 8) ?? '—'}...</strong>
       </div>
       
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

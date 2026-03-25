@@ -38,8 +38,9 @@ export const ConvertTrialModal = ({ trial, open, onClose, onSuccess }: ConvertTr
   const [mode, setMode] = useState<StudentMode>('new');
   const [selectedClassId, setSelectedClassId] = useState<string>('');
   const [searchStudent, setSearchStudent] = useState('');
-  
-  // Dữ liệu học viên (mặc định lấy từ lead)
+  /** ID student đã chọn khi mode = existing — gửi existingStudentId để dùng student có sẵn */
+  const [selectedExistingStudentId, setSelectedExistingStudentId] = useState<string | null>(null);
+
   const [studentData, setStudentData] = useState<NewStudentData>({
     fullName: trial.fullName,
     phone: trial.phone,
@@ -71,7 +72,8 @@ export const ConvertTrialModal = ({ trial, open, onClose, onSuccess }: ConvertTr
   const handleNext = () => setStep('select-class');
   const handleBack = () => setStep('choose-student');
 
-  const handleSelectExistingStudent = (s: any) => {
+  const handleSelectExistingStudent = (s: { id: string; fullName: string; phone?: string; email?: string; guardianName?: string; guardianPhone?: string }) => {
+    setSelectedExistingStudentId(s.id);
     setStudentData({
       fullName: s.fullName,
       phone: s.phone,
@@ -79,18 +81,14 @@ export const ConvertTrialModal = ({ trial, open, onClose, onSuccess }: ConvertTr
       guardianName: s.guardianName,
       guardianPhone: s.guardianPhone,
     });
-    setMode('new'); // Convert sang NewStudentData để gửi backend (vì backend usecase hiện tại yêu cầu object student)
-    // Lưu ý: Nếu backend support existingStudentId thì logic sẽ đổi. 
-    // Hiện tại backend execute() gọi studentRepo.create() nên ta gửi data sang để nó tạo record (hoặc backend tự check trùng)
   };
 
   const handleConfirm = () => {
-    if (!selectedClassId) return;
-
     const payload: ConvertTrialDto = {
       student: studentData,
-      classId: selectedClassId,
+      classId: selectedClassId || undefined,
       note: `Chuyển đổi từ Trial Lead #${trial.id}`,
+      existingStudentId: selectedExistingStudentId ?? undefined,
     };
 
     convert(payload, {
@@ -106,25 +104,25 @@ export const ConvertTrialModal = ({ trial, open, onClose, onSuccess }: ConvertTr
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
         <button
-          onClick={() => setMode('new')}
+          onClick={() => { setMode('new'); setSelectedExistingStudentId(null); }}
           className={cn(
             "p-4 border-2 rounded-xl text-left transition-all flex flex-col gap-2",
-            mode === 'new' ? "border-[var(--color-primary)] bg-blue-50/50" : "border-gray-100 hover:border-gray-200"
+            mode === 'new' ? "border-primary bg-blue-50/50" : "border-gray-100 hover:border-gray-200"
           )}
         >
-          <UserPlus className={cn("w-6 h-6", mode === 'new' ? "text-[var(--color-primary)]" : "text-gray-400")} />
+          <UserPlus className={cn("w-6 h-6", mode === 'new' ? "text-primary" : "text-gray-400")} />
           <span className="font-semibold text-gray-900">Tạo học viên mới</span>
           <span className="text-xs text-gray-400">Dùng thông tin từ lead hiện tại</span>
         </button>
 
         <button
-          onClick={() => setMode('existing')}
+          onClick={() => { setMode('existing'); setSelectedExistingStudentId(null); }}
           className={cn(
             "p-4 border-2 rounded-xl text-left transition-all flex flex-col gap-2",
-            mode === 'existing' ? "border-[var(--color-primary)] bg-blue-50/50" : "border-gray-100 hover:border-gray-200"
+            mode === 'existing' ? "border-primary bg-blue-50/50" : "border-gray-100 hover:border-gray-200"
           )}
         >
-          <UserCheck className={cn("w-6 h-6", mode === 'existing' ? "text-[var(--color-primary)]" : "text-gray-400")} />
+          <UserCheck className={cn("w-6 h-6", mode === 'existing' ? "text-primary" : "text-gray-400")} />
           <span className="font-semibold text-gray-900">Học viên đã có sẵn</span>
           <span className="text-xs text-gray-400">Tìm kiếm từ danh sách đã có</span>
         </button>
@@ -199,14 +197,13 @@ export const ConvertTrialModal = ({ trial, open, onClose, onSuccess }: ConvertTr
       </div>
 
       <FormSelect 
-        label="Chọn lớp học (Yêu cầu)"
+        label="Chọn lớp học"
         value={selectedClassId}
         onChange={(e) => setSelectedClassId(e.target.value)}
-        required
         options={[
-          { label: '--- Chọn lớp học ---', value: '' },
+          { label: '--- Chưa xếp lớp (tạo enrollment chờ xếp) ---', value: '' },
           ...availableClasses.map(c => ({
-            label: `${c.name} (${c.code}) - Còn ? chỗ`, // backend ClassModel chưa có currentCount trực tiếp ở đây, tạm giả định
+            label: `${c.name} (${c.code})`,
             value: c.id
           }))
         ]}
@@ -239,14 +236,18 @@ export const ConvertTrialModal = ({ trial, open, onClose, onSuccess }: ConvertTr
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose} disabled={isConverting}>Hủy bỏ</Button>
             {step === 'choose-student' ? (
-              <Button onClick={handleNext} disabled={!studentData.fullName}>
+              <Button
+                onClick={handleNext}
+                disabled={
+                  mode === 'new' ? !studentData.fullName : !selectedExistingStudentId
+                }
+              >
                 Tiếp theo <ChevronRight className="w-4 h-4 ml-1.5" />
               </Button>
             ) : (
               <Button 
                 onClick={handleConfirm} 
-                loading={isConverting} 
-                disabled={!selectedClassId}
+                loading={isConverting}
               >
                 <Check className="w-4 h-4 mr-1.5" /> Xác nhận Convert
               </Button>
@@ -259,11 +260,11 @@ export const ConvertTrialModal = ({ trial, open, onClose, onSuccess }: ConvertTr
       <div className="flex items-center gap-2 mb-8">
         <div className={cn(
           "h-1.5 flex-1 rounded-full transition-all", 
-          step === 'choose-student' ? "bg-[var(--color-primary)]" : "bg-emerald-500"
+          step === 'choose-student' ? "bg-primary" : "bg-emerald-500"
         )} />
         <div className={cn(
           "h-1.5 flex-1 rounded-full transition-all", 
-          step === 'select-class' ? "bg-[var(--color-primary)]" : "bg-gray-100"
+          step === 'select-class' ? "bg-primary" : "bg-gray-100"
         )} />
       </div>
 

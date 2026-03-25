@@ -16,6 +16,9 @@ export const SessionType = {
 
 export type SessionType = (typeof SessionType)[keyof typeof SessionType];
 
+/** Trạng thái buổi học */
+export type SessionStatus = "SCHEDULED" | "CANCELLED" | "COMPLETED" | "MAKEUP";
+
 /**
  * Domain model đại diện cho một buổi học đã được xử lý và làm sạch cho UI frontend hiển thị
  */
@@ -26,6 +29,8 @@ export interface SessionModel {
   classId: string;
   /** Thời điểm diễn ra buổi học, định dạng chuỗi ISO */
   sessionDate: string;
+  /** Trạng thái buổi học */
+  sessionStatus?: SessionStatus;
   /** ID của Unit (Bài học) (Frontend tính thêm nếu cần) */
   unitId?: string;
   /** Số thứ tự phân phối chương trình của Unit */

@@ -28,6 +28,10 @@ export interface SessionFeedbackVisibility {
  * Lưu ý quan trọng:
  * - Đây chỉ là visibility rule ở FE để trải nghiệm hợp lý.
  * - Không thay thế authorization ở Backend.
+ *
+ * Teacher xem được tất cả feedback của lớp mình (kể cả buổi trước): Backend enforce qua
+ * enforceTeacherCanReadSession (class_staff hoặc main/cover bất kỳ buổi). FE dùng
+ * teacherEffectiveId cho canEdit — chỉ cho sửa buổi mình dạy/cover.
  */
 export const getSessionFeedbackVisibility = (
   ctx: FeedbackVisibilityContext,

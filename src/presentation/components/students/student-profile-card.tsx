@@ -19,9 +19,9 @@ export const StudentProfileCard = ({ student }: StudentProfileCardProps) => {
         </div>
         <div>
           <h2 className="text-xl font-bold text-gray-900">{student.fullName}</h2>
-          <div className="text-sm border border-gray-200 bg-gray-50 text-gray-500 rounded px-2 py-0.5 inline-block mt-1">
-            ID: {student.id}
-          </div>
+          {student.phone && (
+            <div className="text-sm text-gray-500 mt-1">{student.phone}</div>
+          )}
         </div>
       </div>
 

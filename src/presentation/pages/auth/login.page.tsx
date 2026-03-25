@@ -8,7 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { useAuth } from "@/presentation/hooks/auth/use-auth";
 import { useLogin } from "@/presentation/hooks/auth/use-login";
-import { RoutePaths } from "@/app/router/route-paths";
+import { getDefaultRedirectForRole } from "@/app/router/default-redirect.rule";
 import {
   loginFormSchema,
   type LoginFormValues,
@@ -21,15 +21,16 @@ import { FormInput } from "@/shared/ui/form/form-input";
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const loginMutation = useLogin();
 
-  // Redirect về Dashboard nếu đã đăng nhập thành công (session còn valid)
+  // Redirect về trang làm việc chính theo role (SALES→Tuyển sinh, ACCOUNTANT→Hóa đơn, TEACHER→Buổi học của tôi, còn lại→Tổng quan)
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(RoutePaths.DASHBOARD, { replace: true });
+      const target = getDefaultRedirectForRole(user?.roles);
+      navigate(target, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user?.roles, navigate]);
 
   // Cấu hình React Hook Form
   const {

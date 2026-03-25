@@ -96,15 +96,16 @@ export type NewStudentData = {
 /**
  * Dữ liệu để thực hiện convert Trial Lead thành học viên + enrollment
  * Ánh xạ từ ConvertTrialBody ở backend
- * Backend tạo Student mới từ trường `student` và Enrollment từ `classId`
  */
 export type ConvertTrialDto = {
-  /** Thông tin học viên mới cần tạo khi convert */
+  /** Thông tin học viên (bắt buộc khi tạo mới; khi dùng existing thì vẫn cần fullName/phone cho validation) */
   student: NewStudentData;
-  /** ID lớp học để tạo enrollment ngay khi convert (UUID) */
-  classId: string;
-  /** Ghi chú cho quá trình chuyển đổi (tùy chọn) */
+  /** ID lớp học để tạo enrollment (tùy chọn — có thể chưa xếp lớp) */
+  classId?: string | null;
+  /** Ghi chú cho quá trình chuyển đổi */
   note?: string | null;
+  /** Khi phát hiện trùng: gửi ID student có sẵn để dùng thay vì tạo mới */
+  existingStudentId?: string | null;
 };
 
 // ===================================================

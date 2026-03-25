@@ -13,6 +13,7 @@ import DashboardPage from "@/presentation/pages/dashboard/dashboard.page";
 import ForbiddenPage from "@/presentation/pages/errors/forbidden.page";
 import NotFoundPage from "@/presentation/pages/errors/not-found.page";
 import RoleGuard from "@/app/router/role-guard";
+import { DefaultRedirectPage } from "@/app/router/default-redirect-page";
 import { AppRoles } from "@/shared/constants/roles";
 
 // Curriculum Pages
@@ -49,6 +50,7 @@ import FeePlanListPage from "@/presentation/pages/finance/fee-plan-list.page";
 import InvoiceListPage from "@/presentation/pages/finance/invoice-list.page";
 import InvoiceDetailPage from "@/presentation/pages/finance/invoice-detail.page";
 import StudentFinancePage from "@/presentation/pages/finance/student-finance.page";
+import StudentPaymentStatusListPage from "@/presentation/pages/finance/student-payment-status-list.page";
  
 // System Pages
 import NotificationsPage from "@/presentation/pages/system/notifications.page";
@@ -70,7 +72,7 @@ const ProtectedDashboardLayout = () => {
 export const router = createBrowserRouter([
   {
     path: RoutePaths.ROOT,
-    element: <Navigate to={RoutePaths.DASHBOARD} replace />,
+    element: <DefaultRedirectPage />,
   },
   {
     path: RoutePaths.LOGIN,
@@ -375,6 +377,19 @@ export const router = createBrowserRouter([
       },
 
       // Module Tài chính
+      // Redirect parent paths để tránh 404 khi bookmark/gõ URL
+      {
+        path: RoutePaths.FINANCE_ROOT,
+        element: <Navigate to={RoutePaths.INVOICES} replace />,
+      },
+      {
+        path: RoutePaths.CURRICULUM_ROOT,
+        element: <Navigate to={RoutePaths.CURRICULUM_PROGRAMS} replace />,
+      },
+      {
+        path: RoutePaths.SYSTEM_ROOT,
+        element: <Navigate to={RoutePaths.NOTIFICATIONS} replace />,
+      },
       {
         path: RoutePaths.FEE_PLANS,
         element: (
@@ -388,6 +403,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleGuard allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACCOUNTANT, AppRoles.ACADEMIC]}>
             <InvoiceListPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: RoutePaths.STUDENT_PAYMENT_STATUS,
+        element: (
+          <RoleGuard allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACCOUNTANT, AppRoles.ACADEMIC]}>
+            <StudentPaymentStatusListPage />
           </RoleGuard>
         ),
       },

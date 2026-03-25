@@ -75,6 +75,9 @@ export const queryKeys = {
     invoiceDetail: (id: string) => ['finance', 'invoice', id],
     overdueInvoices: ['finance', 'invoices', 'overdue'],
     studentFinance: (studentId: string) => ['finance', 'student-summary', studentId],
+    /** Danh sách trạng thái thanh toán học sinh (đã đóng/chưa đóng theo enrollment+invoice) */
+    studentPaymentStatus: (params?: Record<string, unknown>) =>
+      ['finance', 'student-payment-status', params],
   },
   
   // 9. Hệ thống Cấu hình - Log - Quản lý User

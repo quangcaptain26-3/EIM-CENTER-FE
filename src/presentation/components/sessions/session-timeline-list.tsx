@@ -1,4 +1,4 @@
-import { Calendar, User, BookOpen } from "lucide-react";
+import { Calendar, User, BookOpen, MessageSquare } from "lucide-react";
 import type { SessionModel } from "@/domain/sessions/models/session.model";
 import { isAssessmentSession } from "@/domain/sessions/rules/session.rule";
 import { SessionTypeBadge } from "./session-type-badge";
@@ -19,6 +19,10 @@ export interface SessionTimelineListProps {
    */
   onSelectSession?: (sessionId: string) => void;
   /**
+   * Nếu có: hiển thị nút "Nhận xét" để đi thẳng tới trang nhập nhận xét (tránh phải qua chi tiết buổi học).
+   */
+  onFeedbackClick?: (sessionId: string) => void;
+  /**
    * Css tùy chọn mở rộng cho bao bì khối element
    */
   className?: string;
@@ -32,6 +36,7 @@ export const SessionTimelineList = ({
   sessions,
   isLoading = false,
   onSelectSession,
+  onFeedbackClick,
   className,
 }: SessionTimelineListProps) => {
   if (isLoading) {
@@ -66,6 +71,9 @@ export const SessionTimelineList = ({
             <th className="px-6 py-3">Nội dung (Unit/Lesson)</th>
             <th className="px-6 py-3 text-center">Loại hình</th>
             <th className="px-6 py-3 text-right">Giáo viên phụ trách</th>
+            {onFeedbackClick && (
+              <th className="px-6 py-3 text-right w-28">Thao tác</th>
+            )}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 text-gray-600 bg-white">
@@ -121,6 +129,22 @@ export const SessionTimelineList = ({
                     </span>
                   </div>
                 </td>
+                {onFeedbackClick && (
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onFeedbackClick(session.id);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-md transition-colors"
+                      title="Nhập nhận xét & điểm số"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      Nhận xét
+                    </button>
+                  </td>
+                )}
               </tr>
             );
           })}

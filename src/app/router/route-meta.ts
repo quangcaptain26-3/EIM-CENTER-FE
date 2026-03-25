@@ -321,6 +321,17 @@ export const appRouteMetaList: AppRouteMeta[] = [
         showInBreadcrumb: true,
       },
       {
+        key: 'finance-student-payment-status',
+        label: 'Đã đóng / Chưa đóng',
+        path: RoutePaths.STUDENT_PAYMENT_STATUS,
+        parentKey: 'finance',
+        allowedRoles: [AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACCOUNTANT, AppRoles.ACADEMIC],
+        readRoles: [AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACCOUNTANT, AppRoles.ACADEMIC],
+        writeRoles: [AppRoles.ROOT, AppRoles.ACCOUNTANT],
+        showInSidebar: true,
+        showInBreadcrumb: true,
+      },
+      {
         key: 'finance-invoice-detail',
         label: 'Chi tiết hóa đơn',
         path: RoutePaths.INVOICE_DETAIL,

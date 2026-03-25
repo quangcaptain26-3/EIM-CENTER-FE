@@ -113,6 +113,44 @@ export const financeApi = {
   },
 
   /**
+   * Danh sách trạng thái thanh toán học sinh (đã đóng/chưa đóng theo enrollment+invoice)
+   * GET /finance/student-payment-status
+   */
+  async listStudentPaymentStatus(params?: {
+    paymentStatus?: 'paid' | 'unpaid' | 'partial' | 'overdue' | 'no_invoice';
+    classId?: string;
+    programId?: string;
+    keyword?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiSuccessResponse<{ items: unknown[]; total: number; limit: number; offset: number }>> {
+    const response = await apiClient.get<ApiSuccessResponse<{ items: unknown[]; total: number; limit: number; offset: number }>>(
+      '/finance/student-payment-status',
+      { params }
+    );
+    return response.data;
+  },
+
+  /**
+   * Xuất danh sách trạng thái thanh toán học sinh ra Excel
+   * GET /finance/student-payment-status/export
+   */
+  async exportStudentPaymentStatusExcel(params?: {
+    paymentStatus?: 'paid' | 'unpaid' | 'partial' | 'overdue' | 'no_invoice';
+    classId?: string;
+    programId?: string;
+    keyword?: string;
+  }): Promise<void> {
+    const { downloadExcelFromApi } = await import('@/shared/lib/excel');
+    const filename = `TrangThaiThanhToan_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    await downloadExcelFromApi(
+      '/finance/student-payment-status/export',
+      (params as Record<string, unknown>) ?? {},
+      filename
+    );
+  },
+
+  /**
    * Xuất danh sách thanh toán (payments) ra Excel
    * Route BE: GET /finance/payments/export
    */

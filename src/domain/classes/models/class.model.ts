@@ -37,6 +37,8 @@ export interface ClassModel {
   capacity: number;
   /** Sĩ số hiện tại (đã xếp lớp, ACTIVE) */
   currentSize?: number;
+  /** Số chỗ còn trống (tìm lớp còn chỗ sau convert trial) */
+  remainingCapacity?: number;
   /** Ngày bắt đầu (định dạng ISO yyyy-MM-dd hoặc yyyy-MM-ddTHH:mm:ss) */
   startDate: string;
   /** Trạng thái lớp học */

@@ -14,7 +14,7 @@ import { SearchBox } from "../../components/common/search-box";
 export const ClassListPage = () => {
   const navigate = useNavigate();
 
-  // Filter state
+  // Filter state — SearchBox dùng debounceMs=300 nội bộ
   const [search, setSearch] = useState("");
   const [selectedProgram, setSelectedProgram] = useState<string>("");
   const [selectedStatus, setSelectedStatus] = useState<ClassStatus | "">("");

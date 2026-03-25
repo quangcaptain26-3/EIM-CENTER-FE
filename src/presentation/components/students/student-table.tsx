@@ -33,7 +33,7 @@ export const StudentTable = ({ items, loading, onView, onEdit }: StudentTablePro
       <table className="w-full text-left text-sm whitespace-nowrap">
         <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
           <tr>
-            <th className="px-6 py-3">Học viên / ID</th>
+            <th className="px-6 py-3">Học viên</th>
             <th className="px-6 py-3">Liên hệ</th>
             <th className="px-6 py-3">Người giám hộ</th>
             <th className="px-6 py-3">Ngày tạo</th>
@@ -45,7 +45,6 @@ export const StudentTable = ({ items, loading, onView, onEdit }: StudentTablePro
             <tr key={student.id} className="hover:bg-gray-50 transition-colors">
               <td className="px-6 py-4">
                 <div className="font-semibold text-gray-900">{student.fullName}</div>
-                <div className="text-xs text-gray-400 mt-1">{student.id}</div>
               </td>
               <td className="px-6 py-4">
                 <div className="flex flex-col gap-1">

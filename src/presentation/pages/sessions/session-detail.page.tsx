@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, User, MessageCircle, CalendarPlus, BookOpen } from "lucide-react";
+import { ArrowLeft, User, MessageCircle, CalendarPlus, BookOpen, XCircle } from "lucide-react";
 import PageShell from "../../layouts/page-shell";
 import { useSession } from "../../hooks/sessions/use-sessions";
 import { useClassRoster } from "../../hooks/classes/use-classes";
+import { useUpdateSession } from "../../hooks/sessions/use-session-mutations";
 import { SessionTypeBadge } from "../../components/sessions/session-type-badge";
+import { SessionStatusBadge } from "../../components/sessions/session-status-badge";
 import { CoverTeacherModal } from "../../components/sessions/cover-teacher-modal";
 import { ProtectedAction } from "../../components/common/protected-action";
 import { AppRoles } from "../../../shared/constants/roles";
@@ -25,6 +27,7 @@ export const SessionDetailPage = () => {
 
   // Kéo Data Chi tiết Session
   const { data: session, isLoading: sessionLoading, isError: sessionError } = useSession(sessionId);
+  const { mutate: updateSession, isPending: isUpdating } = useUpdateSession(session?.classId);
 
   // Cần classId từ session để lấy roster. Khóa query để chờ cắn classId
   const { data: roster, isLoading: rosterLoading } = useClassRoster(session?.classId);
@@ -61,6 +64,15 @@ export const SessionDetailPage = () => {
     session.lessonNo !== 0 ? (session.lessonPattern ?? String(session.lessonNo)) : "";
   const courseSectionText = `Unit ${session.unitNo} ${lessonLabel ? "— Bài " + lessonLabel : ""}`;
   const teacherText = session.teacherEffectiveName || "Chưa phân công";
+  const isCancelled = session.sessionStatus === "CANCELLED";
+
+  const handleToggleCancel = () => {
+    const newStatus = isCancelled ? "SCHEDULED" : "CANCELLED";
+    updateSession(
+      { sessionId: session.id, payload: { sessionStatus: newStatus } },
+      { onSuccess: () => {} }
+    );
+  };
 
   return (
     <PageShell
@@ -79,8 +91,21 @@ export const SessionDetailPage = () => {
           {/* Quy tắc: Academic/Root được gán */}
           <ProtectedAction allowedRoles={[AppRoles.ROOT, AppRoles.ACADEMIC]}>
             <button
+              onClick={handleToggleCancel}
+              disabled={isUpdating}
+              className={`px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 ${
+                isCancelled
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : "bg-red-600 hover:bg-red-700 text-white"
+              }`}
+            >
+              <XCircle className="w-4 h-4" />
+              <span>{isCancelled ? "Mở lại buổi học" : "Hủy buổi học"}</span>
+            </button>
+            <button
               onClick={() => setIsCoverTeacherModalOpen(true)}
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+              disabled={isCancelled}
+              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CalendarPlus className="w-4 h-4" />
               <span>Gán giáo viên dạy thay</span>
@@ -99,7 +124,10 @@ export const SessionDetailPage = () => {
             <div>
               <div className="text-xs font-semibold text-gray-500 uppercase">Nội dung học</div>
               <div className="text-sm font-medium text-gray-900 mt-1">{courseSectionText}</div>
-              <div className="mt-2"><SessionTypeBadge type={session.type} size="sm" /></div>
+              <div className="mt-2 flex items-center gap-2">
+                <SessionTypeBadge type={session.type} size="sm" />
+                <SessionStatusBadge status={session.sessionStatus ?? "SCHEDULED"} size="sm" />
+              </div>
             </div>
           </div>
 
@@ -158,14 +186,19 @@ export const SessionDetailPage = () => {
             <p className="text-sm text-gray-600 mb-6 max-w-sm">
               Giáo viên đứng lớp điểm danh, ghi nhận xét và nhập điểm bài kiểm tra cho từng học viên trong buổi học này.
             </p>
-            {/* Nút điều hướng sang trang Feedback — chỉ active với Teacher đứng lớp hoặc Academic/Director */}
-            <button
-              onClick={() => navigate(RoutePaths.SESSION_FEEDBACK.replace(':sessionId', session.id))}
-              className="px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm transition flex items-center gap-2"
-            >
-              <MessageCircle className="w-4 h-4" />
-              Vào trang Nhận xét &amp; Điểm
-            </button>
+            {isCancelled ? (
+              <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                Buổi học đã bị hủy. Không thể nhập nhận xét hoặc điểm.
+              </div>
+            ) : (
+              <button
+                onClick={() => navigate(RoutePaths.SESSION_FEEDBACK.replace(':sessionId', session.id))}
+                className="px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm transition flex items-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Vào trang Nhận xét &amp; Điểm
+              </button>
+            )}
           </div>
         </div>
       </div>

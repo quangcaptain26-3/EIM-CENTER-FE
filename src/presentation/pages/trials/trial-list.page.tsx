@@ -45,6 +45,8 @@ const TrialListPage = () => {
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [selectedTrial, setSelectedTrial] = useState<TrialLeadModel | null>(null);
 
+  // TrialTable -> onFilterChange cập nhật params; SearchBox bên trong dùng debounceMs=300
+
   // ---- HOOKS: Data Fetching ----
   const { data, isLoading } = useTrials({
     search: params.search,

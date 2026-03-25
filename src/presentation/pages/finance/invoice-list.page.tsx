@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RoutePaths } from '@/app/router/route-paths';
 import { PageShell } from '@/presentation/components/common/page-shell';
 import { useInvoices, useOverdueInvoices } from '@/presentation/hooks/finance/use-finance';
 import { useFinancePermission } from '@/presentation/hooks/finance/use-finance-permission';
 import { useCreateInvoice } from '@/presentation/hooks/finance/use-finance-mutations';
+import { useStudents } from '@/presentation/hooks/students';
+import { useStudentEnrollments } from '@/presentation/hooks/students';
 import { ExportFinanceModal } from '@/presentation/components/finance/export-finance-modal';
 import { formatVND } from '@/shared/lib/currency';
 import { Loading } from '@/shared/ui/feedback/loading';
@@ -17,7 +19,9 @@ import { Plus, Eye, Search } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { Modal } from '@/shared/ui/modal';
 import { FormInput } from '@/shared/ui/form/form-input';
+import { FormSelect } from '@/shared/ui/form/form-select';
 import { useForm } from 'react-hook-form';
+import { useDebounce } from '@/shared/hooks/use-debounce';
 
 type TabType = 'ALL' | 'UNPAID' | 'OVERDUE';
 
@@ -36,9 +40,25 @@ export default function InvoiceListPage() {
   // State điều khiển hiển thị modal xuất Excel
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createModalStudentSearch, setCreateModalStudentSearch] = useState('');
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+
+  const debouncedStudentSearch = useDebounce(createModalStudentSearch, 300);
+  const { data: studentsData } = useStudents({
+    search: debouncedStudentSearch || undefined,
+    limit: 10,
+  });
+  const { data: enrollments = [], isLoading: isEnrollmentsLoading } = useStudentEnrollments(selectedStudentId ?? undefined);
 
   const { mutate: createInvoice, isPending: isCreatingInvoice } = useCreateInvoice();
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateInvoiceFormValues>();
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<CreateInvoiceFormValues>();
+
+  const handleCloseCreateModal = useCallback(() => {
+    setIsCreateModalOpen(false);
+    setSelectedStudentId(null);
+    setCreateModalStudentSearch('');
+    reset();
+  }, [reset]);
 
   // Hooks lấy dữ liệu
   const { data: allInvoices, isLoading: isAllLoading } = useInvoices(activeTab !== 'OVERDUE' ? {
@@ -73,10 +93,7 @@ export default function InvoiceListPage() {
         note: values.note,
       },
       {
-        onSuccess: () => {
-          setIsCreateModalOpen(false);
-          reset();
-        },
+        onSuccess: () => handleCloseCreateModal(),
       },
     );
   };
@@ -167,7 +184,6 @@ export default function InvoiceListPage() {
                   >
                     <td className="px-6 py-4">
                       <div className="font-semibold text-slate-900">{inv.studentName || 'N/A'}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5 uppercase tracking-tighter">ID: {inv.id.split('-')[0]}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-slate-700">{inv.programName || 'Chương trình học'}</div>
@@ -221,18 +237,72 @@ export default function InvoiceListPage() {
         defaultParams={defaultExportParams}
       />
 
-      {/* Modal tạo hóa đơn nhanh (từ trang danh sách) */}
+      {/* Modal tạo hóa đơn: chọn học viên -> chọn ghi danh — không nhập UUID */}
       <Modal
         open={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={handleCloseCreateModal}
         title="Tạo hóa đơn mới"
       >
         <form onSubmit={handleSubmit(handleCreateInvoiceSubmit)} className="space-y-4">
-          <FormInput
-            label="Enrollment ID"
-            placeholder="UUID của enrollment (ghi danh)"
-            {...register('enrollmentId', { required: 'Vui lòng nhập enrollmentId' })}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              Tìm học viên <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Gõ tên hoặc SĐT học viên..."
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm"
+                value={createModalStudentSearch}
+                onChange={(e) => {
+                  setCreateModalStudentSearch(e.target.value);
+                  setSelectedStudentId(null);
+                  setValue('enrollmentId', '');
+                }}
+              />
+            </div>
+            {createModalStudentSearch && (
+              <div className="mt-1 max-h-40 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+                {studentsData?.items?.length ? (
+                  studentsData.items.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedStudentId(s.id);
+                        setCreateModalStudentSearch(s.fullName);
+                        setValue('enrollmentId', '');
+                      }}
+                      className={cn(
+                        "w-full px-4 py-2 text-left text-sm hover:bg-slate-50",
+                        selectedStudentId === s.id && "bg-blue-50 text-blue-700"
+                      )}
+                    >
+                      <span className="font-medium">{s.fullName}</span>
+                      {s.phone && <span className="text-slate-500 ml-2">{s.phone}</span>}
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-sm text-slate-500">Không tìm thấy học viên</div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <FormSelect
+            label="Ghi danh (lớp)"
+            required
+            {...register('enrollmentId', { required: 'Vui lòng chọn ghi danh' })}
             error={errors.enrollmentId?.message as string}
+            options={enrollments
+              .filter((e) => e.status === 'ACTIVE' || e.status === 'PAUSED')
+              .map((e) => ({
+                label: `${e.classCode ?? 'Lớp'} - ${new Date(e.startDate).toLocaleDateString('vi-VN')}`,
+                value: e.id,
+              }))}
+            placeholder={selectedStudentId ? (isEnrollmentsLoading ? 'Đang tải...' : '-- Chọn ghi danh --') : 'Chọn học viên trước'}
+            disabled={!selectedStudentId || isEnrollmentsLoading}
           />
           <FormInput
             label="Số tiền (VND)"

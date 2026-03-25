@@ -1,4 +1,4 @@
-import { RefreshCw, MapPin, Wallet } from 'lucide-react';
+import { RefreshCw, MapPin, Wallet, AlertTriangle } from 'lucide-react';
 import type { EnrollmentModel } from '@/domain/students/models/enrollment.model';
 import { EmptyState } from '@/shared/ui/feedback/empty';
 import { Loading } from '@/shared/ui/feedback/loading';
@@ -41,12 +41,20 @@ export const EnrollmentList = ({ enrollments, loading, onUpdateStatus, onTransfe
         >
           {/* Thông tin lớp */}
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              {/* TODO: Lấy class Name từ backend resolve map hoặc gọi class detail */}
+            <div className="flex items-center gap-3 flex-wrap">
               <h3 className="font-semibold text-lg text-gray-900">
-                Lớp ID: {enrollment.classId.substring(0, 8)}...
+                {enrollment.classCode ?? `Lớp ${enrollment.classId?.slice(0, 8) ?? '—'}...`}
               </h3>
               <EnrollmentStatusBadge status={enrollment.status} />
+              {enrollment.attendanceSummary?.isAtRisk && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                  title={`Vắng ${enrollment.attendanceSummary.absentCount}/${enrollment.attendanceSummary.totalSessions} buổi (ngưỡng cảnh báo: ${enrollment.attendanceSummary.warningThreshold})`}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Cảnh báo chuyên cần
+                </span>
+              )}
             </div>
             
             <div className="flex gap-6 mt-1 text-sm text-gray-500">

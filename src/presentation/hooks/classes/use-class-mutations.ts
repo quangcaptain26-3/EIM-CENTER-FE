@@ -16,7 +16,7 @@ import type {
 
 /**
  * Hook tạo lớp học mới.
- * BE có thể tự động generate sessions sau khi tạo (nếu đã được cài đặt).
+ * BE sinh sessions khi gửi `schedules` và `autoGenerateSessions !== false`.
  */
 export const useCreateClass = () => {
   const queryClient = useQueryClient();

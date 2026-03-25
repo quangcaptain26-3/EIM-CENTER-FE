@@ -50,6 +50,7 @@ export const RoutePaths = {
   FEE_PLANS: '/finance/fee-plans',
   INVOICES: '/finance/invoices',       // Danh sách hóa đơn
   INVOICE_DETAIL: '/finance/invoices/:id',
+  STUDENT_PAYMENT_STATUS: '/finance/student-payment-status', // Danh sách đã đóng/chưa đóng
   STUDENT_FINANCE: '/finance/enrollments/:enrollmentId',
 
   // ── Hệ thống ─────────────────────────────────────

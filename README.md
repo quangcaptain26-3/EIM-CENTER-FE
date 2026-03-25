@@ -384,7 +384,8 @@ eim-center-frontend
 │  │     │  ├─ fee-plan-list.page.tsx
 │  │     │  ├─ invoice-detail.page.tsx
 │  │     │  ├─ invoice-list.page.tsx
-│  │     │  └─ student-finance.page.tsx
+│  │     │  ├─ student-finance.page.tsx
+│  │     │  └─ student-payment-status-list.page.tsx
 │  │     ├─ sessions
 │  │     │  ├─ my-sessions.page.tsx
 │  │     │  ├─ session-detail.page.tsx

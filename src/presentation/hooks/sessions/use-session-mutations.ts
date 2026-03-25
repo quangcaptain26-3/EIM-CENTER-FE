@@ -3,7 +3,38 @@ import { queryKeys } from "@/infrastructure/query/query-keys";
 import { SessionsApiService } from "@/infrastructure/services/sessions.api";
 import { toastAdapter } from "@/infrastructure/adapters/toast.adapter";
 import { mapHttpError } from "@/infrastructure/http/http-error.mapper";
-import type { UpdateSessionDto } from "@/application/sessions/dto/sessions.dto";
+import type { GenerateSessionsDto, UpdateSessionDto } from "@/application/sessions/dto/sessions.dto";
+
+/**
+ * Sinh (hoặc sinh lại) toàn bộ buổi học cho lớp đã có lịch cố định.
+ * POST /classes/:id/sessions/generate
+ */
+export const useGenerateSessions = (classId?: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: GenerateSessionsDto = {}) => {
+      if (!classId) {
+        throw new Error("Thiếu ID lớp học");
+      }
+      return SessionsApiService.generateSessions(classId, payload);
+    },
+    onSuccess: () => {
+      if (classId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sessions.byClass(classId),
+        });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.classes.detail(classId),
+        });
+      }
+      toastAdapter.success("Đã sinh buổi học thành công");
+    },
+    onError: (error: unknown) => {
+      toastAdapter.error(mapHttpError(error));
+    },
+  });
+};
 
 /**
  * Hook thực hiện cập nhật thông tin chung của một buổi học (đổi lịch, note, sửa nội dung bài).
