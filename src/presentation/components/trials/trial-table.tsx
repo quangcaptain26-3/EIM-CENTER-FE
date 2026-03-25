@@ -4,7 +4,7 @@
  * Filter state được quản lý tại component này (controlled)
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, Eye, Pencil, CalendarClock } from 'lucide-react';
 import { SearchBox } from '@/presentation/components/common/search-box';
 import { TrialStatusBadge } from './trial-status-badge';
@@ -12,7 +12,7 @@ import { Button } from '@/shared/ui/button';
 import { EmptyState } from '@/shared/ui/feedback/empty';
 import { Loading } from '@/shared/ui/feedback/loading';
 import type { TrialLeadModel, TrialStatus } from '@/domain/trials/models/trial-lead.model';
-import { TRIAL_STATUS_VALUES, TRIAL_STATUS_LABELS } from '@/domain/trials/models/trial-lead.model';
+import { TRIAL_STATUS_LABELS } from '@/domain/trials/models/trial-lead.model';
 import { canEdit } from '@/domain/trials/rules/trial.rule';
 
 // ===================================================
@@ -37,8 +37,23 @@ export interface TrialTableProps {
   /** Quyền thực hiện action ghi (schedule/edit) trên từng dòng */
   canWriteActions?: boolean;
   /** Callback khi filter thay đổi — để page truyền lên query hook */
-  onFilterChange?: (params: { search?: string; status?: TrialStatus }) => void;
+  onFilterChange?: (params: { search?: string; status?: TrialStatus; statuses?: TrialStatus[] }) => void;
 }
+
+type TrialViewKey = 'ACTIVE' | 'CONVERTED' | 'CLOSED' | 'ALL';
+
+const VIEW_LABELS: Record<TrialViewKey, string> = {
+  ACTIVE: 'Đang học thử',
+  CONVERTED: 'Đã chuyển đổi',
+  CLOSED: 'Đã đóng',
+  ALL: 'Tất cả',
+};
+
+const VIEW_STATUSES: Record<Exclude<TrialViewKey, 'ALL'>, TrialStatus[]> = {
+  ACTIVE: ['NEW', 'CONTACTED', 'SCHEDULED', 'ATTENDED', 'NO_SHOW'],
+  CONVERTED: ['CONVERTED'],
+  CLOSED: ['CLOSED'],
+};
 
 // ===================================================
 // COMPONENT CHÍNH
@@ -70,19 +85,44 @@ export const TrialTable = ({
 }: TrialTableProps) => {
   // State filter nội bộ — đồng bộ lên parent qua onFilterChange
   const [search, setSearch] = useState('');
+  const [view, setView] = useState<TrialViewKey>('ACTIVE');
   const [statusFilter, setStatusFilter] = useState<TrialStatus | ''>('');
+
+  const viewStatuses = useMemo(() => {
+    if (view === 'ALL') return undefined;
+    return VIEW_STATUSES[view];
+  }, [view]);
 
   /** Xử lý thay đổi ô tìm kiếm */
   const handleSearchChange = (value: string) => {
     setSearch(value);
-    onFilterChange?.({ search: value || undefined, status: statusFilter || undefined });
+    onFilterChange?.({
+      search: value || undefined,
+      status: statusFilter || undefined,
+      statuses: viewStatuses,
+    });
   };
 
-  /** Xử lý thay đổi dropdown filter trạng thái */
+  /** Xử lý thay đổi dropdown filter trạng thái (lọc nâng cao 1 trạng thái) */
   const handleStatusChange = (value: string) => {
     const status = value as TrialStatus | '';
     setStatusFilter(status);
-    onFilterChange?.({ search: search || undefined, status: status || undefined });
+    onFilterChange?.({
+      search: search || undefined,
+      status: status || undefined,
+      statuses: viewStatuses,
+    });
+  };
+
+  const handleViewChange = (nextView: TrialViewKey) => {
+    setView(nextView);
+    // Khi đổi tab, reset lọc status đơn để tránh mâu thuẫn UX
+    setStatusFilter('');
+    onFilterChange?.({
+      search: search || undefined,
+      status: undefined,
+      statuses: nextView === 'ALL' ? undefined : VIEW_STATUSES[nextView],
+    });
   };
 
   // ===================================================
@@ -96,7 +136,27 @@ export const TrialTable = ({
     <div className="flex flex-col gap-4">
       {/* ---- TOOLBAR: Tìm kiếm + Filter + Nút thêm ---- */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="flex flex-col sm:flex-row gap-3 flex-1 w-full sm:max-w-xl">
+        <div className="flex flex-col gap-3 flex-1 w-full">
+          {/* Tabs view: Active / Converted / Closed / All */}
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(VIEW_LABELS) as TrialViewKey[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => handleViewChange(k)}
+                className={[
+                  'h-8 px-3 rounded-full text-xs font-semibold border transition-colors',
+                  view === k
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50',
+                ].join(' ')}
+              >
+                {VIEW_LABELS[k]}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:max-w-xl">
           {/* Ô tìm kiếm theo tên hoặc SĐT */}
           <SearchBox
             value={search}
@@ -105,20 +165,23 @@ export const TrialTable = ({
             className="flex-1"
           />
 
-          {/* Dropdown filter theo trạng thái */}
+          {/* Dropdown filter theo trạng thái (nâng cao) */}
           <select
             value={statusFilter}
             onChange={(e) => handleStatusChange(e.target.value)}
             className="h-9 px-3 text-sm border border-gray-200 rounded-md bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
             aria-label="Lọc theo trạng thái"
           >
-            <option value="">Tất cả trạng thái</option>
-            {TRIAL_STATUS_VALUES.map((s) => (
-              <option key={s} value={s}>
-                {TRIAL_STATUS_LABELS[s]}
-              </option>
-            ))}
+            <option value="">(Nâng cao) Lọc 1 trạng thái...</option>
+            <option value="NEW">{TRIAL_STATUS_LABELS.NEW}</option>
+            <option value="CONTACTED">{TRIAL_STATUS_LABELS.CONTACTED}</option>
+            <option value="SCHEDULED">{TRIAL_STATUS_LABELS.SCHEDULED}</option>
+            <option value="ATTENDED">{TRIAL_STATUS_LABELS.ATTENDED}</option>
+            <option value="NO_SHOW">{TRIAL_STATUS_LABELS.NO_SHOW}</option>
+            <option value="CONVERTED">{TRIAL_STATUS_LABELS.CONVERTED}</option>
+            <option value="CLOSED">{TRIAL_STATUS_LABELS.CLOSED}</option>
           </select>
+        </div>
         </div>
 
         {/* Nút thêm lead mới — chỉ hiển thị nếu có quyền */}
@@ -137,8 +200,12 @@ export const TrialTable = ({
       {/* ---- BẢNG DỮ LIỆU ---- */}
       {!items || items.length === 0 ? (
         <EmptyState
-          title="Chưa có khách hàng học thử nào"
-          description="Bạn có thể thêm lead mới để bắt đầu theo dõi."
+          title={view === 'ACTIVE' ? 'Chưa có khách hàng học thử nào' : 'Chưa có dữ liệu'}
+          description={
+            view === 'ACTIVE'
+              ? 'Bạn có thể thêm lead mới để bắt đầu theo dõi.'
+              : 'Bạn có thể chuyển tab khác hoặc thay đổi bộ lọc để xem dữ liệu.'
+          }
           className="bg-white rounded-lg shadow-sm border border-gray-100"
         />
       ) : (

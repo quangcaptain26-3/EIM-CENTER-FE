@@ -15,6 +15,7 @@ export const DashboardLayout = () => {
   const dispatch = useAppDispatch();
   const location = useLocation();
   const { sidebarOpen } = useAppSelector((s) => s.ui);
+  const currentYear = new Date().getFullYear();
 
   useEffect(() => {
     const handleResize = () => {
@@ -39,7 +40,7 @@ export const DashboardLayout = () => {
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 md:hidden"
+          className="fixed inset-0 z-60 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300 md:hidden"
           onClick={() => dispatch(setSidebarOpen(false))}
           aria-hidden="true"
         />
@@ -52,7 +53,7 @@ export const DashboardLayout = () => {
 
         <div
           className={cn(
-            "flex flex-col min-h-screen min-w-0 flex-1 transition-all duration-400 ease-[cubic-bezier(0.4,0,0.2,1)]",
+            "flex flex-col min-h-screen min-w-0 flex-1 transition-all duration-400 ease-in-out",
             sidebarOpen ? "md:ml-[280px]" : "md:ml-[88px]",
           )}
         >
@@ -62,7 +63,7 @@ export const DashboardLayout = () => {
           </main>
 
           <footer className="py-6 px-10 border-t border-slate-200/50 text-slate-400 text-xs font-medium flex justify-between items-center">
-            <p>© 2024 EIM Management System. All rights reserved.</p>
+            <p>© {currentYear} EIM Management System. All rights reserved.</p>
             <div className="flex gap-4">
               <span className="hover:text-indigo-500 cursor-pointer transition-colors">
                 Documentation

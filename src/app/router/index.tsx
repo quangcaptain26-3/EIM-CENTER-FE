@@ -97,7 +97,6 @@ export const router = createBrowserRouter([
               AppRoles.DIRECTOR,
               AppRoles.ACADEMIC,
               AppRoles.SALES, AppRoles.ACCOUNTANT,
-              AppRoles.TEACHER,
             ]}
           >
             <StudentListPage />
@@ -123,7 +122,6 @@ export const router = createBrowserRouter([
               AppRoles.DIRECTOR,
               AppRoles.ACADEMIC,
               AppRoles.SALES, AppRoles.ACCOUNTANT,
-              AppRoles.TEACHER,
             ]}
           >
             <StudentDetailPage />
@@ -316,7 +314,7 @@ export const router = createBrowserRouter([
       },
       {
         // Trang lịch sử điểm số theo học viên:
-        // Teacher và các role quản lý đều xem được
+        // Teacher không truy cập màn học viên; điểm số xem theo buổi học (Session Feedback)
         path: RoutePaths.STUDENT_SCORE_HISTORY,
         element: (
           <RoleGuard
@@ -324,7 +322,6 @@ export const router = createBrowserRouter([
               AppRoles.DIRECTOR,
               AppRoles.ACADEMIC,
               AppRoles.SALES, AppRoles.ACCOUNTANT,
-              AppRoles.TEACHER,
             ]}
           >
             <StudentScoreHistoryPage />

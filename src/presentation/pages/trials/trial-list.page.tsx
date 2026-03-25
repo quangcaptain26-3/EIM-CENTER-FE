@@ -11,7 +11,6 @@ import { ScheduleTrialModal } from '@/presentation/components/trials/schedule-tr
 import { Modal } from '@/shared/ui/modal';
 import { useTrials } from '@/presentation/hooks/trials/use-trials';
 import { useCreateTrial } from '@/presentation/hooks/trials/use-trial-mutations';
-import { useAuth } from '@/presentation/hooks/auth/use-auth';
 import { RoutePaths } from '@/app/router/route-paths';
 import type { TrialListParams } from '@/application/trials/dto/trials.dto';
 import type { TrialLeadModel } from '@/domain/trials/models/trial-lead.model';
@@ -28,7 +27,6 @@ interface TrialListPageState extends TrialListParams {
 
 const TrialListPage = () => {
   const navigate = useNavigate();
-  const { hasAnyRole } = useAuth();
   const { canRead, canWrite } = useTrialsPermission();
   
   // ---- STATE: Filter & Pagination ----
@@ -36,6 +34,8 @@ const TrialListPage = () => {
     page: 1,
     limit: 10,
     search: '',
+    // Mặc định: chỉ hiển thị “Đang học thử” (ẩn CONVERTED/CLOSED)
+    statuses: ['NEW', 'CONTACTED', 'SCHEDULED', 'ATTENDED', 'NO_SHOW'],
     status: undefined,
   });
 
@@ -50,6 +50,7 @@ const TrialListPage = () => {
   // ---- HOOKS: Data Fetching ----
   const { data, isLoading } = useTrials({
     search: params.search,
+    statuses: params.statuses,
     status: params.status,
     limit: params.limit,
     offset: (params.page - 1) * (params.limit || 10),
@@ -61,6 +62,7 @@ const TrialListPage = () => {
     mutationFn: () =>
       trialsApi.exportTrialsExcel({
         search: params.search || undefined,
+        // Export dùng status đơn; nếu đang dùng statuses, export theo “All” (để tránh sai lệch mong đợi)
         status: params.status,
         limit: 1000,
       }),
@@ -96,8 +98,8 @@ const TrialListPage = () => {
     setIsScheduleModalOpen(true);
   };
 
-  /** Chức năng chỉ cho phép role có quyền ghi (WRITE) thêm lead */
-  const canAdd = hasAnyRole(['SALES', 'ROOT']);
+  /** Chức năng thêm lead: cần quyền ghi Trials */
+  const canAdd = canWrite;
 
   return (
     <div className="flex flex-col gap-6 p-6">

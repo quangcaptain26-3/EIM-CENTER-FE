@@ -78,12 +78,17 @@ export const trialsApi = {
    * @returns Danh sách TrialLeadModel đã được map + metadata phân trang
    */
   listTrials: async (params?: TrialListParams): Promise<TrialListResponse> => {
+    const serializedParams =
+      params && params.statuses && params.statuses.length > 0
+        ? { ...params, statuses: params.statuses.join(',') }
+        : params;
+
     const response = await apiClient.get<
       ApiSuccessResponse<{
         items: RawTrialLead[];
         meta: { total: number; limit: number; offset: number };
       }>
-    >('/trials', { params });
+    >('/trials', { params: serializedParams });
 
     const raw = response.data.data;
     return {

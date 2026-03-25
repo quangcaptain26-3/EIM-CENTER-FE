@@ -99,7 +99,7 @@ export const appRouteMetaList: AppRouteMeta[] = [
     label: 'Học viên',
     path: RoutePaths.STUDENTS,
     icon: 'users',
-    allowedRoles: [AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC, AppRoles.SALES, AppRoles.ACCOUNTANT, AppRoles.TEACHER],
+    allowedRoles: [AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC, AppRoles.SALES, AppRoles.ACCOUNTANT],
     showInSidebar: true,
     showInBreadcrumb: true,
     children: [
@@ -117,7 +117,7 @@ export const appRouteMetaList: AppRouteMeta[] = [
         label: 'Chi tiết học viên',
         path: RoutePaths.STUDENT_DETAIL,
         parentKey: 'students',
-        allowedRoles: [AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC, AppRoles.SALES, AppRoles.ACCOUNTANT, AppRoles.TEACHER],
+        allowedRoles: [AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC, AppRoles.SALES, AppRoles.ACCOUNTANT],
         showInSidebar: false,
         showInBreadcrumb: true,
         children: [
@@ -127,7 +127,7 @@ export const appRouteMetaList: AppRouteMeta[] = [
             label: 'Lịch sử điểm số',
             path: RoutePaths.STUDENT_SCORE_HISTORY,
             parentKey: 'students-detail',
-            allowedRoles: [AppRoles.DIRECTOR, AppRoles.ACADEMIC, AppRoles.SALES, AppRoles.ACCOUNTANT, AppRoles.TEACHER],
+            allowedRoles: [AppRoles.DIRECTOR, AppRoles.ACADEMIC, AppRoles.SALES, AppRoles.ACCOUNTANT],
             showInSidebar: false,
             showInBreadcrumb: true,
           }
@@ -201,7 +201,9 @@ export const appRouteMetaList: AppRouteMeta[] = [
     path: RoutePaths.CLASSES,
     icon: 'calendar',
     allowedRoles: [AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC],
-    showInSidebar: true,
+    // Tránh trùng với menu "Quản lý lớp học" (cùng path) gây highlight 2 mục cùng lúc.
+    // Khi có trang /sessions đúng nghĩa thì bật lại menu này.
+    showInSidebar: false,
     showInBreadcrumb: true,
     children: [
       {

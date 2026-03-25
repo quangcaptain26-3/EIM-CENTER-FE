@@ -26,15 +26,15 @@ import { Loading } from '@/shared/ui/feedback/loading';
 import { EmptyState } from '@/shared/ui/feedback/empty';
 import { useTrial } from '@/presentation/hooks/trials/use-trials';
 import { useUpdateTrial } from '@/presentation/hooks/trials/use-trial-mutations';
-import { useAuth } from '@/presentation/hooks/auth/use-auth';
-import { canEdit, isConverted } from '@/domain/trials/rules/trial.rule';
+import { useTrialsPermission } from '@/presentation/hooks/trials/use-trials-permission';
+import { canConvert as canConvertByStatus, canEdit, isConverted } from '@/domain/trials/rules/trial.rule';
 import { TRIAL_STATUS_LABELS } from '@/domain/trials/models/trial-lead.model';
 import { RoutePaths } from '@/app/router/route-paths';
 
 const TrialDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { hasAnyRole } = useAuth();
+  const { canWrite } = useTrialsPermission();
   
   // ---- STATE ----
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
@@ -62,9 +62,9 @@ const TrialDetailPage = () => {
   if (error || !trial) return <EmptyState title="Không tìm thấy thông tin" description="Dữ liệu lead không tồn tại hoặc đã bị xóa." />;
 
   /** Kiểm tra quyền thực hiện các hành động nhạy cảm */
-  const canConvert = hasAnyRole(['SALES', 'ROOT']) && !isConverted(trial);
-  const canWriteLead = hasAnyRole(['SALES', 'ROOT']);
-  const canSchedule = hasAnyRole(['SALES', 'ROOT']) && trial.status !== 'CLOSED' && !isConverted(trial);
+  const canWriteLead = canWrite;
+  const canSchedule = canWrite && canEdit(trial.status);
+  const canConvertTrial = canWrite && canConvertByStatus(trial.status) && !isConverted(trial);
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -96,7 +96,7 @@ const TrialDetailPage = () => {
                   <Edit3 className="w-4 h-4 mr-2" /> Chỉnh sửa lead
                 </Button>
               )}
-              {canConvert && (
+              {canConvertTrial && (
                 <Button variant="primary" size="sm" onClick={() => setIsConvertModalOpen(true)}>
                   Convert sang học viên <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
@@ -240,7 +240,7 @@ const TrialDetailPage = () => {
               <div className="text-white/60 text-xs italic mb-4">
                 "Việc chuyển đổi học viên sẽ tự động tạo hồ sơ và ghi danh vào lớp học tương ứng."
               </div>
-              {canConvert && (
+              {canConvertTrial && (
                 <button 
                   onClick={() => setIsConvertModalOpen(true)}
                   className="w-full py-3 bg-white text-blue-600 rounded-xl text-sm font-bold shadow-sm hover:bg-white/90 transition-all flex items-center justify-center gap-2"

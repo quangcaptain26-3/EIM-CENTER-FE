@@ -19,8 +19,7 @@ const flattenSessionFeedbackApiItem = (item: SessionFeedbackApiItemDto): Session
     homework: item.feedback?.homework ?? null,
     participation: item.feedback?.participation ?? null,
     behavior: item.feedback?.behavior ?? null,
-    // Backend Part 2 chưa có languageUsage trong list-session-feedback output → giữ null
-    languageUsage: null,
+    languageUsage: item.feedback?.languageUsage ?? null,
     comment: item.feedback?.comment ?? null,
     updatedAt: item.feedback?.updatedAt ?? null,
   };

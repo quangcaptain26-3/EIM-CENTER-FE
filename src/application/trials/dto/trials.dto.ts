@@ -119,6 +119,11 @@ export type ConvertTrialDto = {
 export type TrialListParams = {
   /** Tìm kiếm theo tên hoặc số điện thoại */
   search?: string;
+  /**
+   * Lọc nhiều trạng thái (ưu tiên hơn status nếu truyền).
+   * FE sẽ serialize sang query `statuses=NEW,CONTACTED,...`
+   */
+  statuses?: TrialStatus[];
   /** Lọc theo trạng thái cụ thể */
   status?: TrialStatus;
   /** Số lượng items mỗi trang (mặc định 20, tối đa 100) */

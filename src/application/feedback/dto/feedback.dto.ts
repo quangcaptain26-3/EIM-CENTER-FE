@@ -209,6 +209,7 @@ export interface SessionFeedbackApiFeedbackDto {
   homework: string | null;
   participation: string | null;
   behavior: string | null;
+  languageUsage: string | null;
   comment: string | null;
   teacherId: string;
   updatedAt: string;
