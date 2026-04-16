@@ -6,7 +6,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 // Import CSS nền tảng của app (reset, variables, utilities)
-import "@/styles/index.css";
+import "@/index.css";
 
 import AppProvider from "@/app/providers/app-provider";
 import { ErrorBoundary } from "@/shared/ui/feedback/error-boundary";

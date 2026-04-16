@@ -1,105 +1,135 @@
-import { useEffect } from "react";
-import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { useCallback, useEffect, useId, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
+import { cn } from '@/shared/lib/cn';
+import { Button } from '@/shared/ui/button';
+
+export type ModalSize = 'sm' | 'md' | 'lg' | 'xl';
+
+/** Giá trị cũ từ `maxWidth` — map sang `size` */
+export type ModalMaxWidthLegacy = ModalSize | '2xl';
+
+const sizeClass: Record<ModalSize, string> = {
+  sm: 'max-w-md',
+  md: 'max-w-xl',
+  lg: 'max-w-3xl',
+  xl: 'max-w-5xl',
+};
+
+const legacyToSize = (mw: ModalMaxWidthLegacy): ModalSize => {
+  if (mw === '2xl') return 'lg';
+  return mw;
+};
 
 export interface ModalProps {
-  open: boolean;
+  isOpen: boolean;
   onClose: () => void;
   title: string;
+  description?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  /** Kích thước modal — ưu tiên hơn `maxWidth` */
+  size?: ModalSize;
+  /** @deprecated dùng `size` */
+  maxWidth?: ModalMaxWidthLegacy;
+  closeOnBackdrop?: boolean;
   className?: string;
-  closeOnOutsideClick?: boolean;
 }
 
-/**
- * Component Modal cơ bản dùng chung
- */
-export const Modal = ({
-  open,
+export function Modal({
+  isOpen,
   onClose,
   title,
+  description,
   children,
   footer,
+  size,
+  maxWidth = 'md',
+  closeOnBackdrop = true,
   className,
-  closeOnOutsideClick = true,
-}: ModalProps) => {
-  // Prevent scrolling when modal is open
+}: ModalProps) {
+  const titleId = useId();
+  const descId = useId();
+
+  const resolvedSize = size ?? legacyToSize(maxWidth);
+
+  const onKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    },
+    [onClose],
+  );
+
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
+    if (!isOpen) return;
+    document.addEventListener('keydown', onKeyDown);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = "unset";
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = prev;
     };
-  }, [open]);
+  }, [isOpen, onKeyDown]);
 
-  // Handle Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && open) {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+  if (!isOpen) return null;
 
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
-        onClick={closeOnOutsideClick ? onClose : undefined}
-        aria-hidden="true"
+  const panel = (
+    <div
+      className="fixed inset-0 z-100 flex items-center justify-center p-4"
+      role="presentation"
+    >
+      <button
+        type="button"
+        aria-label="Đóng"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={() => closeOnBackdrop && onClose()}
       />
-
-      {/* Dialog container */}
       <div
-        className={cn(
-          "relative z-50 w-full max-w-lg bg-white rounded-xl shadow-xl border border-slate-200 flex flex-col mx-4 max-h-[90vh] animate-in fade-in zoom-in-95 duration-200",
-          className,
-        )}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={description ? descId : undefined}
+        className={cn(
+          'relative z-101 flex max-h-[min(90vh,900px)] w-full flex-col overflow-hidden',
+          'rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-xl animate-scale-in',
+          'max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:max-h-[88vh] max-sm:rounded-b-none max-sm:rounded-t-2xl max-sm:border-x-0 max-sm:border-b-0',
+          sizeClass[resolvedSize],
+          className,
+        )}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
-          <button
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+          <div className="min-w-0 space-y-1">
+            <h2 id={titleId} className="font-display text-lg font-semibold text-[var(--text-primary)]">
+              {title}
+            </h2>
+            {description ? (
+              <p id={descId} className="text-sm text-[var(--text-secondary)]">
+                {description}
+              </p>
+            ) : null}
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-full transition-colors"
-            aria-label="Đóng"
+            aria-label="Đóng hộp thoại"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
+            <X className="size-4" strokeWidth={1.5} />
+          </Button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto">{children}</div>
+        <div className="max-h-[70vh] min-h-0 flex-1 overflow-y-auto px-5 py-4">{children}</div>
 
-        {/* Footer */}
-        {footer && (
-          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50/50 rounded-b-xl">
+        {footer ? (
+          <div className="flex shrink-0 justify-end gap-3 border-t border-[var(--border-subtle)] px-5 py-4">
             {footer}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
-};
+
+  return createPortal(panel, document.body);
+}

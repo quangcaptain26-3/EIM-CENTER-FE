@@ -1,52 +1,55 @@
-// input.tsx
-// Input Text Field hỗ trợ gán Label phụ và in thông báo màu đỏ khi có Error
-
-import { type InputHTMLAttributes, forwardRef } from "react";
-import { cn } from "../lib/cn";
+import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
+import { cn } from '@/shared/lib/cn';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  error?: string;
+  error?: boolean;
+  leftIcon?: ReactNode;
+  rightIcon?: ReactNode;
 }
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, id, ...props }, ref) => {
-    // Mặc định cho input viền xám, nếu lỗi hiện viền đỏ
-    const baseInput =
-      "flex h-10 w-full rounded-lg border bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-text)] outline-none transition-colors placeholder-[var(--color-text-muted)]";
-    const borderClass = error
-      ? "border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500"
-      : "border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]";
+export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  { className, error, leftIcon, rightIcon, disabled, ...props },
+  ref,
+) {
+  const hasLeft = Boolean(leftIcon);
+  const hasRight = Boolean(rightIcon);
 
-    return (
-      <div className="flex flex-col gap-1.5 w-full">
-        {label && (
-          <label
-            htmlFor={id}
-            className="text-sm font-medium text-[var(--color-text)]"
-          >
-            {label}
-            {props.required && <span className="text-red-500 ml-1">*</span>}
-          </label>
+  return (
+    <div
+      className={cn(
+        'relative flex w-full items-center rounded-lg border bg-[var(--bg-subtle)] transition-[border-color,box-shadow]',
+        error
+          ? 'border-red-500/50 shadow-[0_0_0_3px_rgba(239,68,68,0.15)]'
+          : 'border-[var(--border-default)] shadow-none hover:border-[var(--border-strong)]',
+        !error &&
+          'focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent-subtle)]',
+        disabled && 'pointer-events-none opacity-40',
+      )}
+    >
+      {hasLeft ? (
+        <span className="pointer-events-none absolute left-2.5 inline-flex text-[var(--text-muted)] [&_svg]:size-4">
+          {leftIcon}
+        </span>
+      ) : null}
+      <input
+        ref={ref}
+        disabled={disabled}
+        className={cn(
+          'h-9 w-full min-w-0 rounded-lg bg-transparent px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]',
+          'outline-none focus:outline-none',
+          hasLeft && 'pl-9',
+          hasRight && 'pr-9',
+          className,
         )}
+        {...props}
+      />
+      {hasRight ? (
+        <span className="absolute right-2.5 inline-flex text-[var(--text-muted)] [&_svg]:size-4">
+          {rightIcon}
+        </span>
+      ) : null}
+    </div>
+  );
+});
 
-        <input
-          ref={ref}
-          id={id}
-          className={cn(
-            baseInput,
-            borderClass,
-            "disabled:cursor-not-allowed disabled:bg-gray-100",
-            className,
-          )}
-          {...props}
-        />
-
-        {/* Dòng chữ báo lỗi */}
-        {error && <span className="text-xs text-red-500">{error}</span>}
-      </div>
-    );
-  },
-);
-
-Input.displayName = "Input";
+Input.displayName = 'Input';

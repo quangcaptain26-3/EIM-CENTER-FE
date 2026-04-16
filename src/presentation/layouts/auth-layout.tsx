@@ -1,32 +1,42 @@
-// auth-layout.tsx
-// Layout cho trang xác thực – canh giữa màn hình, dùng Tailwind.
-
-import { env } from "@/app/config/env";
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 
 interface AuthLayoutProps {
   children: ReactNode;
 }
 
-const AuthLayout = ({ children }: AuthLayoutProps) => {
+/**
+ * Đăng nhập: panel trái branding + panel phải form (trái ẩn trên mobile).
+ */
+export function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 px-4 py-8">
-      <div className="w-full max-w-md bg-white border border-[var(--color-border)] rounded-2xl p-8 sm:p-10 shadow-xl shadow-blue-900/5 backdrop-blur-sm">
-        {/* Header: logo + tên app */}
-        <div className="flex flex-col items-center gap-3 mb-8">
-          <div className="h-16 w-16 bg-[var(--color-primary)] text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
-            <span className="text-3xl">🎓</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            {env.APP_NAME}
+    <div className="flex min-h-screen bg-[var(--bg-base)]">
+      <div
+        className="relative hidden w-1/2 flex-col justify-between border-r border-[var(--border-subtle)] p-10 lg:flex"
+        style={{
+          backgroundImage: `
+            radial-gradient(circle at 1px 1px, rgb(148 163 184 / 0.25) 1px, transparent 0)
+          `,
+          backgroundSize: '24px 24px',
+        }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-500/15 via-transparent to-[var(--bg-base)]" />
+        <div className="relative z-[1] space-y-4">
+          <p className="font-display text-3xl font-bold text-brand-600">EIM</p>
+          <h1 className="max-w-md font-display text-2xl font-semibold leading-tight text-[var(--text-primary)]">
+            Hệ thống quản lý trung tâm tiếng Anh
           </h1>
+          <p className="max-w-sm text-sm leading-relaxed text-[var(--text-secondary)]">
+            Điểm danh, học phí, nhân sự và báo cáo — một nền tảng cho đội ngũ vận hành và giảng dạy.
+          </p>
         </div>
+        <p className="relative z-[1] text-xs text-[var(--text-muted)]">© EIM Center</p>
+      </div>
 
-        {/* Nội dung form do trang con cung cấp */}
-        {children}
+      <div className="flex w-full flex-1 items-center justify-center px-4 py-10 lg:w-1/2">
+        <div className="w-full max-w-md rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-[var(--shadow-lg)] sm:p-8">
+          {children}
+        </div>
       </div>
     </div>
   );
-};
-
-export default AuthLayout;
+}

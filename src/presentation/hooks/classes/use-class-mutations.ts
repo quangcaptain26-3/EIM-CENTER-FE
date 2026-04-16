@@ -1,209 +1,101 @@
-/**
- * Các hook mutation cho module Lớp học (Classes)
- * Sử dụng TanStack Query + classesApi, kèm invalidate cache và toast tiếng Việt.
- */
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import {
+  closeClass,
+  createClass,
+  generateSessions,
+  replaceTeacher,
+  updateClass,
+} from '@/infrastructure/services/classes.api';
+import { QUERY_KEYS } from '@/infrastructure/query/query-keys';
+import { mutationToastApiError } from '@/presentation/hooks/toast-api-error';
+import {
+  useAssignCover,
+  useCancelCover,
+  useRescheduleSession,
+} from '@/presentation/hooks/sessions/use-session-mutations';
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/infrastructure/query/query-keys";
-import { classesApi } from "@/infrastructure/services/classes.api";
-import { toastAdapter } from "@/infrastructure/adapters/toast.adapter";
-import { mapHttpError } from "@/infrastructure/http/http-error.mapper";
-import type {
-  AssignStaffRequestDto,
-  CreateClassRequestDto,
-  UpdateClassRequestDto,
-} from "@/application/classes/dto/classes.dto";
-
-/**
- * Hook tạo lớp học mới.
- * BE sinh sessions khi gửi `schedules` và `autoGenerateSessions !== false`.
- */
-export const useCreateClass = () => {
-  const queryClient = useQueryClient();
-
+function useCreateClassMutation() {
   return useMutation({
-    mutationFn: (payload: CreateClassRequestDto) =>
-      classesApi.createClass(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
-      toastAdapter.success("Tạo lớp học thành công");
+    mutationFn: (data: Record<string, unknown>) => createClass(data),
+  });
+}
+
+function useUpdateClassMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => updateClass(id, data),
+    onSuccess: (_r, { id }) => {
+      toast.success('Đã cập nhật lớp');
+      void qc.invalidateQueries({ queryKey: QUERY_KEYS.CLASSES.detail(id) });
+      void qc.invalidateQueries({ queryKey: ['classes', 'list'] });
     },
-    onError: (error: unknown) => {
-      toastAdapter.error(mapHttpError(error));
+    onError: mutationToastApiError,
+  });
+}
+
+function useGenerateSessionsMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body?: Record<string, unknown> }) =>
+      generateSessions(id, body ?? {}),
+    onSuccess: (_r, { id }) => {
+      void qc.invalidateQueries({ queryKey: QUERY_KEYS.CLASSES.sessions(id) });
+      void qc.invalidateQueries({ queryKey: QUERY_KEYS.CLASSES.detail(id) });
+    },
+    onError: mutationToastApiError,
+  });
+}
+
+function useReplaceTeacherMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) => replaceTeacher(id, body),
+    onSuccess: () => {
+      toast.success('Đã thay giáo viên');
+    },
+    onError: mutationToastApiError,
+    onSettled: (_d, _e, { id }) => {
+      void qc.invalidateQueries({ queryKey: QUERY_KEYS.CLASSES.detail(id) });
+      void qc.invalidateQueries({ queryKey: QUERY_KEYS.CLASSES.sessions(id) });
     },
   });
-};
+}
 
-/**
- * Hook cập nhật thông tin lớp học.
- * @param classId ID lớp học cần cập nhật
- */
-export const useUpdateClass = (classId?: string) => {
-  const queryClient = useQueryClient();
-
+function useCloseClassMutation() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: UpdateClassRequestDto) => {
-      if (!classId) {
-        throw new Error("Thiếu ID lớp học");
-      }
-      return classesApi.updateClass(classId, payload);
-    },
+    mutationFn: (id: string) => closeClass(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
-      if (classId) {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.classes.detail(classId),
-        });
-      }
-      toastAdapter.success("Cập nhật thông tin lớp học thành công");
+      toast.success('Đã đóng lớp');
     },
-    onError: (error: unknown) => {
-      toastAdapter.error(mapHttpError(error));
+    onError: mutationToastApiError,
+    onSettled: (_d, _e, id) => {
+      void qc.invalidateQueries({ queryKey: QUERY_KEYS.CLASSES.detail(id) });
+      void qc.invalidateQueries({ queryKey: ['classes', 'list'] });
     },
   });
-};
+}
 
 /**
- * Hook phân công Staff (giáo viên/trợ giảng) vào lớp học.
- * @param classId ID lớp học
+ * Gộp mutation lớp + cover / đổi lịch buổi (sessions).
+ * assignCover, cancelCover, reschedule cần sessionId + classId tuỳ API.
  */
-export const useAssignStaff = (classId?: string) => {
-  const queryClient = useQueryClient();
+export function useClassMutations() {
+  return {
+    createClass: useCreateClassMutation(),
+    updateClass: useUpdateClassMutation(),
+    generateSessions: useGenerateSessionsMutation(),
+    replaceTeacher: useReplaceTeacherMutation(),
+    closeClass: useCloseClassMutation(),
+    assignCover: useAssignCover(),
+    cancelCover: useCancelCover(),
+    reschedule: useRescheduleSession(),
+  };
+}
 
-  return useMutation({
-    mutationFn: (payload: AssignStaffRequestDto) => {
-      if (!classId) {
-        throw new Error("Thiếu ID lớp học");
-      }
-      return classesApi.assignStaff(classId, payload);
-    },
-    onSuccess: () => {
-      if (classId) {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.classes.detail(classId),
-        });
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.classes.staff(classId),
-        });
-      }
-      toastAdapter.success("Phân công nhân sự thành công");
-    },
-    onError: (error: unknown) => {
-      toastAdapter.error(mapHttpError(error));
-    },
-  });
-};
-
-/**
- * Hook huỷ phân công Staff khỏi lớp học.
- * @param classId ID lớp học
- */
-export const useRemoveStaff = (classId?: string) => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: AssignStaffRequestDto) => {
-      if (!classId) {
-        throw new Error("Thiếu ID lớp học");
-      }
-      return classesApi.removeStaff(classId, payload);
-    },
-    onSuccess: () => {
-      if (classId) {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.classes.detail(classId),
-        });
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.classes.staff(classId),
-        });
-      }
-      toastAdapter.success("Huỷ phân công nhân sự thành công");
-    },
-    onError: (error: unknown) => {
-      toastAdapter.error(mapHttpError(error));
-    },
-  });
-};
-
-/**
- * Hook đóng lớp học (chuyển trạng thái sang CLOSED).
- * @param classId ID lớp học
- */
-export const useCloseClass = (classId?: string) => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => {
-      if (!classId) {
-        throw new Error("Thiếu ID lớp học");
-      }
-      return classesApi.closeClass(classId);
-    },
-    onSuccess: () => {
-      if (classId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.classes.detail(classId),
-        });
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.classes.roster(classId),
-        });
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.classes.schedules(classId),
-        });
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.sessions.byClass(classId),
-        });
-      }
-      toastAdapter.success("Đóng lớp học thành công");
-    },
-    onError: (error: unknown) => {
-      toastAdapter.error(mapHttpError(error));
-    },
-  });
-};
-
-/**
- * Hook thêm học viên (enrollment) vào lớp học.
- * BE nhận: { enrollmentId } — thêm enrollment đã tồn tại
- *       hoặc { studentId, startDate } — tạo enrollment mới
- * @param classId ID lớp học
- */
-export const useAddStudentToClass = <
-  TPayload extends object = Record<string, unknown>,
-  TResponse = unknown,
->(
-  classId?: string,
-) => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: TPayload) => {
-      if (!classId) {
-        throw new Error("Thiếu ID lớp học");
-      }
-      return classesApi.addEnrollment<TPayload, TResponse>(classId, payload);
-    },
-    onSuccess: () => {
-      if (classId) {
-        // Refresh roster list để hiện học viên mới
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.classes.roster(classId),
-        });
-        // Refresh detail để cập nhật số sĩ số hiện tại
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.classes.detail(classId),
-        });
-        // Refresh danh sách lớp tổng quát (có thể hiện sĩ số)
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.classes.all,
-        });
-      }
-      toastAdapter.success("Thêm học viên vào lớp thành công");
-    },
-    onError: (error: unknown) => {
-      toastAdapter.error(mapHttpError(error));
-    },
-  });
-};
-
+export const useCreateClass = useCreateClassMutation;
+export const useUpdateClass = useUpdateClassMutation;
+export const useGenerateSessions = useGenerateSessionsMutation;
+export const useReplaceTeacher = useReplaceTeacherMutation;
+export const useCloseClass = useCloseClassMutation;

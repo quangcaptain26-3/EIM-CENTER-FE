@@ -1,114 +1,87 @@
-/**
- * src/infrastructure/services/sessions.api.ts
- * Lớp giao tiếp gọi các kết nối HTTP cho module buổi học
- */
-
-import { apiClient } from "@/app/config/axios";
-import type { ApiSuccessResponse } from "@/shared/types/api.type";
+import { apiClient } from '@/app/config/axios';
 import type {
-  ListSessionsParams,
-  SessionDetailDto,
-  UpdateSessionDto,
-  GenerateSessionsDto,
-} from "@/application/sessions/dto/sessions.dto";
+  AttendanceRecord,
+  CoverTeacherCandidate,
+  SessionDetailResponse,
+  SessionResponse,
+} from '@/shared/types/api-contract';
+import { unwrapApiData } from '@/infrastructure/services/api-unwrap.util';
+import { compactParams } from '@/infrastructure/services/query-params.util';
 
-/**
- * Đối tượng xử lý trực tiếp giao tiếp gọi API REST Backend của Module Buổi Học
- */
-export const SessionsApiService = {
-  /**
-   * Tính năng sinh hàng loạt buổi học (Generate Sessions)
-   * POST /api/v1/classes/:id/sessions/generate
-   * @param classId Định danh của lớp học cần sinh
-   * @param payload Payload của tham số yêu cầu ngày khai giảng và số bài
-   * @returns Danh sách các buổi học vừa được sinh thành công
-   */
-  async generateSessions(
-    classId: string,
-    payload: GenerateSessionsDto
-  ): Promise<ApiSuccessResponse<SessionDetailDto[]>> {
-    const response = await apiClient.post<ApiSuccessResponse<SessionDetailDto[]>>(
-      `/classes/${classId}/sessions/generate`,
-      payload
-    );
-    return response.data;
-  },
+export async function getSession(id: string): Promise<SessionDetailResponse> {
+  const res = await apiClient.get(`/sessions/${id}`);
+  return unwrapApiData<SessionDetailResponse>(res);
+}
 
-  /**
-   * Lấy danh sách toàn bộ các buổi học đang có của một lớp
-   * GET /api/v1/classes/:id/sessions
-   * @param classId Định danh lớp học
-   * @param params Bộ lọc thông số (nếu có)
-   * @returns Mảng chi tiết DTO của các buổi học thuộc lớp
-   */
-  async listClassSessions(
-    classId: string,
-    params?: ListSessionsParams
-  ): Promise<ApiSuccessResponse<SessionDetailDto[]>> {
-    const response = await apiClient.get<ApiSuccessResponse<SessionDetailDto[]>>(
-      `/classes/${classId}/sessions`,
-      { params }
-    );
-    return response.data;
-  },
+export async function getAvailableCovers(sessionId: string): Promise<CoverTeacherCandidate[]> {
+  const res = await apiClient.get(`/sessions/${sessionId}/available-covers`);
+  return unwrapApiData<CoverTeacherCandidate[]>(res);
+}
 
-  /**
-   * Lấy chi tiết thông tin cụ thể (chưa ánh xạ) của 1 buổi học
-   * GET /api/v1/sessions/:sessionId
-   * @param sessionId Định danh của buổi học
-   * @returns DTO chi tiết buổi học trực tiếp
-   */
-  async getSession(sessionId: string): Promise<ApiSuccessResponse<SessionDetailDto>> {
-    const response = await apiClient.get<ApiSuccessResponse<SessionDetailDto>>(
-      `/sessions/${sessionId}`
-    );
-    return response.data;
-  },
+export interface AssignCoverBody {
+  coverTeacherId: string;
+  reason: string | null;
+}
 
-  /**
-   * Thay đổi thông tin 1 buổi học (gắn ghi chú, đổi gv, đổi ngày)
-   * PATCH /api/v1/sessions/:sessionId
-   * @param sessionId ID xác định buổi học để thay đổi
-   * @param payload Dữ liệu payload muốn update (UpdateSessionDto)
-   * @returns DTO sau khi update từ API
-   */
-  async updateSession(
-    sessionId: string,
-    payload: UpdateSessionDto
-  ): Promise<ApiSuccessResponse<SessionDetailDto>> {
-    const response = await apiClient.patch<ApiSuccessResponse<SessionDetailDto>>(
-      `/sessions/${sessionId}`,
-      payload
-    );
-    return response.data;
-  },
+export async function assignCover(
+  sessionId: string,
+  data: AssignCoverBody | Record<string, unknown>,
+): Promise<SessionResponse> {
+  const res = await apiClient.post(`/sessions/${sessionId}/cover`, data);
+  return unwrapApiData<SessionResponse>(res);
+}
 
-  /**
-   * Helper function gắn riêng giáo viên dạy thay (Cover teacher)
-   * Hoạt động bằng cách bọc phương thức updateSession theo nghiệp vụ.
-   * @param sessionId ID xác định buổi học
-   * @param coverTeacherId ID giáo viên dạy thay (hoặc null nếu muốn gỡ)
-   * @returns Kết quả update sau cùng
-   */
-  async setSessionCoverTeacher(
-    sessionId: string,
-    coverTeacherId: string | null
-  ): Promise<ApiSuccessResponse<SessionDetailDto>> {
-    return this.updateSession(sessionId, { coverTeacherId });
-  },
+export async function cancelCover(sessionId: string): Promise<SessionResponse> {
+  const res = await apiClient.delete(`/sessions/${sessionId}/cover`);
+  return unwrapApiData<SessionResponse>(res);
+}
 
-  /**
-   * Lấy danh sách buổi học của một giáo viên (Lịch dạy cá nhân)
-   * GET /api/v1/sessions/teacher/:teacherId
-   * @param teacherId ID của giáo viên
-   * @returns Danh sách các buổi học của giáo viên đó
-   */
-  async listTeacherSessions(
-    teacherId: string
-  ): Promise<ApiSuccessResponse<SessionDetailDto[]>> {
-    const response = await apiClient.get<ApiSuccessResponse<SessionDetailDto[]>>(
-      `/sessions/teacher/${teacherId}`
-    );
-    return response.data;
-  },
-};
+export interface RescheduleSessionBody {
+  newDate: string;
+  reason: string;
+}
+
+export async function rescheduleSession(
+  sessionId: string,
+  data: RescheduleSessionBody | Record<string, unknown>,
+): Promise<SessionResponse> {
+  const res = await apiClient.patch(`/sessions/${sessionId}/reschedule`, data);
+  return unwrapApiData<SessionResponse>(res);
+}
+
+/** month có thể là số hoặc chuỗi (YYYY-MM) tuỳ convention BE */
+export interface MySessionsParams {
+  month?: number | string;
+  year?: number;
+}
+
+export async function getMySessions(params: MySessionsParams): Promise<SessionResponse[]> {
+  const res = await apiClient.get('/my-sessions', {
+    params: compactParams(params as Record<string, unknown>),
+  });
+  return unwrapApiData<SessionResponse[]>(res);
+}
+
+export async function recordAttendance(
+  sessionId: string,
+  payload: AttendanceRecord[] | { records: AttendanceRecord[] } | Record<string, unknown>,
+): Promise<void> {
+  let records: AttendanceRecord[];
+  if (Array.isArray(payload)) {
+    records = payload;
+  } else if ('records' in payload && Array.isArray(payload.records)) {
+    records = payload.records as AttendanceRecord[];
+  } else {
+    records = (payload as { records?: AttendanceRecord[] }).records ?? [];
+  }
+  await apiClient.post(`/sessions/${sessionId}/attendance`, { records });
+}
+
+/** GET /sessions/:id/conflict-check?date= — kiểm tra lịch khi đổi lịch buổi */
+export async function getSessionConflictCheck(sessionId: string, date: string): Promise<unknown> {
+  const res = await apiClient.get(`/sessions/${sessionId}/conflict-check`, { params: { date } });
+  return unwrapApiData(res);
+}
+
+/** @deprecated dùng rescheduleSession */
+export const reschedule = rescheduleSession;

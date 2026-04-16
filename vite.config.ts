@@ -16,4 +16,45 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/') ||
+            id.includes('react-router')
+          ) {
+            return 'vendor-react';
+          }
+          if (id.includes('@tanstack/react-query') || id.includes('@tanstack/react-table')) {
+            return 'vendor-query';
+          }
+          if (id.includes('@reduxjs/toolkit') || id.includes('react-redux')) {
+            return 'vendor-store';
+          }
+          if (id.includes('react-hook-form') || id.includes('/zod/') || id.includes('@hookform')) {
+            return 'vendor-form';
+          }
+          if (id.includes('recharts')) {
+            return 'vendor-charts';
+          }
+          if (
+            id.includes('lucide-react') ||
+            id.includes('sonner') ||
+            id.includes('clsx') ||
+            id.includes('tailwind-merge') ||
+            id.includes('dayjs')
+          ) {
+            return 'vendor-ui';
+          }
+          if (id.includes('axios')) {
+            return 'vendor-http';
+          }
+          return undefined;
+        },
+      },
+    },
+  },
 });

@@ -1,41 +1,26 @@
-// use-login.ts
-// Hook xử lý luồng đăng nhập:
-// gọi use-case → cập nhật store + query cache → hiển thị toast.
-
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '@/app/store/hooks';
-import { setCredentials } from '@/infrastructure/store/auth.slice';
-import { loginUseCase } from '@/application/auth/use-cases/login.use-case';
-import { mapHttpError } from '@/infrastructure/http/http-error.mapper';
-import { toastAdapter } from '@/infrastructure/adapters/toast.adapter';
-import { queryKeys } from '@/infrastructure/query/query-keys';
-import type { LoginRequestDto } from '@/application/auth/dto/login.dto';
-import type { AuthStateUser } from '@/shared/types/auth.type';
+import { setAuth } from '@/app/store/auth.slice';
+import { login } from '@/infrastructure/services/auth.api';
+import { RoutePaths } from '@/app/router/route-paths';
+import { mutationToastApiError } from '@/presentation/hooks/toast-api-error';
+import { mapUserResponseToAuthUser } from '@/shared/lib/map-user-response';
 
 export function useLogin() {
-  const dispatch     = useAppDispatch();
-  const queryClient  = useQueryClient();
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: (payload: LoginRequestDto) => loginUseCase(payload),
-
-    onSuccess: (data) => {
-      // Lưu token + user vào Redux store (và storage qua reducer)
-      dispatch(setCredentials({
-        accessToken:  data.accessToken,
-        refreshToken: data.refreshToken,
-        // Ép kiểu: AuthUserModel tương thích AuthStateUser (chỉ thiếu loggedInAt)
-        user: { ...data.user, loggedInAt: Date.now() } as AuthStateUser,
-      }));
-
-      // Đặt cache auth.me để tránh gọi GET /auth/me ngay sau login
-      queryClient.setQueryData(queryKeys.auth.me, data.user);
-
-      toastAdapter.success('Đăng nhập thành công!');
+    mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      return login(email, password);
     },
-
-    onError: (error: unknown) => {
-      toastAdapter.error(mapHttpError(error));
+    onSuccess: (payload) => {
+      localStorage.setItem('accessToken', payload.accessToken);
+      localStorage.setItem('refreshToken', payload.refreshToken);
+      dispatch(setAuth(mapUserResponseToAuthUser(payload.user)));
+      navigate(RoutePaths.DASHBOARD, { replace: true });
     },
+    onError: mutationToastApiError,
   });
 }

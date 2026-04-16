@@ -1,30 +1,30 @@
-// not-found.page.tsx
-// Trang lỗi 404, dùng Tailwind classes.
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/shared/ui/button';
+import { RoutePaths } from '@/app/router/route-paths';
 
-import { Link } from "react-router-dom";
-import { RoutePaths } from "@/app/router/route-paths";
+export default function NotFoundPage() {
+  const navigate = useNavigate();
 
-const NotFoundPage = () => {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[var(--color-bg)] px-6 text-center">
-      {/* Số lỗi lớn */}
-      <p className="text-[9rem] font-extrabold text-[var(--color-primary)] opacity-10 leading-none mb-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--bg-base)] px-4">
+      <p
+        className="font-display text-[96px] font-bold leading-none text-brand-500/20 select-none"
+        aria-hidden
+      >
         404
       </p>
-      <h1 className="text-2xl font-bold text-[var(--color-text)] mb-2">
-        Trang không tồn tại
-      </h1>
-      <p className="text-sm text-[var(--color-text-muted)] mb-8">
-        Địa chỉ bạn truy cập không hợp lệ hoặc đã bị xoá.
+      <h1 className="mt-4 font-display text-xl font-semibold text-[var(--text-primary)]">Không tìm thấy trang</h1>
+      <p className="mt-2 max-w-md text-center text-sm text-[var(--text-secondary)]">
+        Đường dẫn không tồn tại hoặc đã được đổi. Kiểm tra URL hoặc quay về trang chủ.
       </p>
-      <Link
-        to={RoutePaths.DASHBOARD}
-        className="px-6 py-2.5 border-2 border-[var(--color-primary)] text-[var(--color-primary)] rounded-lg font-semibold text-sm hover:bg-[var(--color-primary)] hover:text-white transition-colors duration-200"
-      >
-        ← Quay về Dashboard
-      </Link>
+      <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <Button type="button" variant="secondary" onClick={() => navigate(-1)}>
+          Quay lại
+        </Button>
+        <Button type="button" onClick={() => navigate(RoutePaths.DASHBOARD, { replace: true })}>
+          Về Dashboard
+        </Button>
+      </div>
     </div>
   );
-};
-
-export default NotFoundPage;
+}

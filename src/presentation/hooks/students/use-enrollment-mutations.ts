@@ -1,117 +1,135 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/infrastructure/query/query-keys';
-import { 
-  createEnrollmentUseCase, 
-  updateEnrollmentStatusUseCase, 
-  transferEnrollmentUseCase 
-} from '@/application/students/use-cases';
-import { toastAdapter } from '@/infrastructure/adapters/toast.adapter';
-import { mapHttpError } from '@/infrastructure/http/http-error.mapper';
-import type { 
-  CreateEnrollmentRequestDto, 
-  UpdateEnrollmentStatusRequestDto, 
-  TransferEnrollmentRequestDto 
-} from '@/application/students/dto/enrollment.dto';
+import { toast } from 'sonner';
+import {
+  activateEnrollment,
+  createEnrollment,
+  dropEnrollment,
+  pauseEnrollment,
+  resumeEnrollment,
+  startTrialEnrollment,
+  transferClass,
+} from '@/infrastructure/services/students.api';
+import { QUERY_KEYS } from '@/infrastructure/query/query-keys';
+import { mutationToastApiError } from '@/presentation/hooks/toast-api-error';
 
-/**
- * Hook thêm học viên vào lớp (Ghi danh mới)
- * @param studentId Tùy chọn truyền vào để refresh query nội bộ của học viên đó
- */
-export const useCreateEnrollment = (studentId?: string) => {
-  const queryClient = useQueryClient();
+function invalidateStudentEnrollments(qc: ReturnType<typeof useQueryClient>, studentId: string) {
+  void qc.invalidateQueries({ queryKey: QUERY_KEYS.STUDENTS.enrollments(studentId) });
+  void qc.invalidateQueries({ queryKey: QUERY_KEYS.STUDENTS.detail(studentId) });
+  void qc.invalidateQueries({ queryKey: ['students', 'list'] });
+  void qc.invalidateQueries({ queryKey: ['classes'] });
+}
 
+export function useCreateEnrollment() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: CreateEnrollmentRequestDto) => createEnrollmentUseCase(payload),
-    onSuccess: (_, variables) => {
-      if (studentId) {
-        // Làm mới danh sách ghi danh của học viên
-        queryClient.invalidateQueries({ queryKey: queryKeys.students.enrollments(studentId) });
-        // Làm mới chi tiết học viên (để cập nhật số lượng ghi danh nếu có hiển thị)
-        queryClient.invalidateQueries({ queryKey: queryKeys.students.detail(studentId) });
-      }
-
-      // Invalidate roster của lớp để học viên mới xuất hiện ngay lập tức
-      if (variables.classId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.classes.roster(variables.classId) });
-        // Refresh chi tiết lớp để cập nhật sĩ số hiện tại
-        queryClient.invalidateQueries({ queryKey: queryKeys.classes.detail(variables.classId) });
-      }
-
-      // Refresh lại danh sách lớp tổng quát
-      queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
-      toastAdapter.success('Ghi danh học viên thành công');
+    mutationFn: (data: Record<string, unknown> & { studentId: string }) => createEnrollment(data),
+    onSuccess: (_r, vars) => {
+      toast.success('Đã ghi danh');
+      invalidateStudentEnrollments(qc, vars.studentId);
     },
-    onError: (error) => {
-      toastAdapter.error(mapHttpError(error));
-    },
+    onError: mutationToastApiError,
   });
-};
+}
 
-/**
- * Hook cập nhật trạng thái ghi danh (Bảo lưu, Thôi học...)
- */
-export const useUpdateEnrollmentStatus = (studentId?: string) => {
-  const queryClient = useQueryClient();
-
+export function useActivateEnrollment() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ enrollmentId, payload }: { enrollmentId: string; payload: UpdateEnrollmentStatusRequestDto }) => 
-      updateEnrollmentStatusUseCase(enrollmentId, payload),
-    onSuccess: (data: any) => {
-      if (studentId) {
-        // Cập nhật lại lịch sử ghi danh và chi tiết học viên
-        queryClient.invalidateQueries({ queryKey: queryKeys.students.enrollments(studentId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.students.detail(studentId) });
-      }
-      
-      // Invalidate roster của lớp để phản ánh trạng thái mới của học viên
-      if (data?.classId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.classes.roster(data.classId) });
-      }
-
-      // Refresh danh sách lớp chung
-      queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
-      toastAdapter.success('Cập nhật trạng thái tham gia thành công');
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      studentId: string;
+      body?: Record<string, unknown>;
+    }) => activateEnrollment(id, body),
+    onSuccess: (_r, { studentId }) => {
+      toast.success('Đã kích hoạt ghi danh');
+      invalidateStudentEnrollments(qc, studentId);
     },
-    onError: (error) => {
-      toastAdapter.error(mapHttpError(error));
-    },
+    onError: mutationToastApiError,
   });
-};
+}
 
-/**
- * Hook chuyển lớp cho học viên
- */
-export const useTransferEnrollment = (studentId?: string) => {
-  const queryClient = useQueryClient();
-
+export function useStartTrialEnrollment() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ enrollmentId, payload }: { enrollmentId: string; payload: TransferEnrollmentRequestDto }) => 
-      transferEnrollmentUseCase(enrollmentId, payload),
-    onSuccess: (data: any) => {
-      if (studentId) {
-        // Cập nhật lại danh sách ghi danh vì có enrollment mới được tạo ra
-        queryClient.invalidateQueries({ queryKey: queryKeys.students.enrollments(studentId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.students.detail(studentId) });
-      }
-
-      // Invalidate roster lớp đích (bắt buộc — học viên phải xuất hiện ở lớp mới)
-      if (data?.newEnrollment?.classId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.classes.roster(data.newEnrollment.classId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.classes.detail(data.newEnrollment.classId) });
-      }
-
-      // Invalidate roster lớp cũ (để xóa hoặc cập nhật trạng thái học viên ở lớp nguồn)
-      if (data?.oldEnrollment?.classId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.classes.roster(data.oldEnrollment.classId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.classes.detail(data.oldEnrollment.classId) });
-      }
-
-      // Refresh danh sách lớp để cập nhật sĩ số các lớp liên quan
-      queryClient.invalidateQueries({ queryKey: queryKeys.classes.all });
-      toastAdapter.success('Chuyển lớp học viên thành công');
+    mutationFn: ({ id }: { id: string; studentId: string }) => startTrialEnrollment(id),
+    onSuccess: (_r, { studentId }) => {
+      toast.success('Đã bắt đầu học thử');
+      invalidateStudentEnrollments(qc, studentId);
     },
-    onError: (error) => {
-      toastAdapter.error(mapHttpError(error));
-    },
+    onError: mutationToastApiError,
   });
-};
+}
+
+export function useDropEnrollment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      studentId: string;
+      body: Record<string, unknown>;
+    }) => dropEnrollment(id, body),
+    onSuccess: (_r, { studentId }) => {
+      toast.success('Đã cho nghỉ');
+      invalidateStudentEnrollments(qc, studentId);
+    },
+    onError: mutationToastApiError,
+  });
+}
+
+export function usePauseEnrollment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      studentId: string;
+      body: Record<string, unknown>;
+    }) => pauseEnrollment(id, body),
+    onSuccess: (result, { studentId }) => {
+      invalidateStudentEnrollments(qc, studentId);
+      void qc.invalidateQueries({ queryKey: ['pause-requests'] });
+      if (result.kind === 'needsApproval') {
+        void qc.invalidateQueries({ queryKey: QUERY_KEYS.PAUSE_REQUESTS.list({ status: 'pending' }) });
+      }
+    },
+    onError: mutationToastApiError,
+  });
+}
+
+export function useResumeEnrollment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id }: { id: string; studentId: string }) => resumeEnrollment(id),
+    onSuccess: (_r, { studentId }) => {
+      toast.success('Đã tiếp tục học');
+      invalidateStudentEnrollments(qc, studentId);
+    },
+    onError: mutationToastApiError,
+  });
+}
+
+export function useTransferClass() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      studentId: string;
+      body: Record<string, unknown>;
+    }) => transferClass(id, body),
+    onSuccess: (_r, { studentId }) => {
+      toast.success('Đã chuyển lớp');
+      invalidateStudentEnrollments(qc, studentId);
+    },
+    onError: mutationToastApiError,
+  });
+}

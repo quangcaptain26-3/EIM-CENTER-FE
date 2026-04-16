@@ -1,166 +1,226 @@
-/**
- * @file finance.api.ts
- * @description Service gọi API cho các nghiệp vụ tài chính (Finance).
- */
-
-import { apiClient } from "@/app/config/axios";
-import type { ApiSuccessResponse } from "@/shared/types/api.type";
+import { apiClient } from '@/app/config/axios';
 import type {
-  CreateFeePlanDto,
-  UpdateFeePlanDto,
-  CreateInvoiceDto,
-  UpdateInvoiceStatusDto,
-  CreatePaymentDto,
-  ListInvoicesParams,
-  ExportPaymentsParams,
-} from "@/application/finance/dto/finance.dto";
-import type { RawStudentFinance } from "@/application/finance/mappers/finance.mapper";
+  DashboardData,
+  DebtResponse,
+  PagedResponse,
+  PayrollPreview,
+  PayrollRecord,
+  PayrollRecordDetail,
+  PaymentStatusItem,
+  ReceiptResponse,
+  RefundRequest,
+} from '@/shared/types/api-contract';
+import { unwrapApiData } from '@/infrastructure/services/api-unwrap.util';
+import { compactParams } from '@/infrastructure/services/query-params.util';
 
-export const financeApi = {
-  /**
-   * Lấy danh sách gói học phí
-   * GET /finance/fee-plans
-   */
-  async listFeePlans(params?: { programId?: string }): Promise<ApiSuccessResponse<any[]>> {
-    const response = await apiClient.get<ApiSuccessResponse<any[]>>("/finance/fee-plans", { params });
-    return response.data;
-  },
+export interface ReceiptsListParams {
+  page?: number;
+  limit?: number;
+  studentId?: string;
+  enrollmentId?: string;
+  fromDate?: string;
+  toDate?: string;
+  /** Alias thường dùng ở filter UI */
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+  paymentMethod?: string;
+}
 
-  /**
-   * Tạo gói học phí mới
-   * POST /finance/fee-plans
-   */
-  async createFeePlan(payload: CreateFeePlanDto): Promise<ApiSuccessResponse<any>> {
-    const response = await apiClient.post<ApiSuccessResponse<any>>("/finance/fee-plans", payload);
-    return response.data;
-  },
+export async function getReceipts(params?: ReceiptsListParams): Promise<PagedResponse<ReceiptResponse>> {
+  const res = await apiClient.get('/receipts', {
+    params: params ? compactParams(params as Record<string, unknown>) : undefined,
+  });
+  return unwrapApiData<PagedResponse<ReceiptResponse>>(res);
+}
 
-  /**
-   * Cập nhật gói học phí
-   * PATCH /finance/fee-plans/:id
-   */
-  async updateFeePlan(id: string, payload: UpdateFeePlanDto): Promise<ApiSuccessResponse<any>> {
-    const response = await apiClient.patch<ApiSuccessResponse<any>>(`/finance/fee-plans/${id}`, payload);
-    return response.data;
-  },
+export async function createReceipt(data: Record<string, unknown>): Promise<ReceiptResponse> {
+  const body = { ...data };
+  delete body.amount_in_words;
+  delete body.amountInWords;
+  const res = await apiClient.post('/receipts', body);
+  return unwrapApiData<ReceiptResponse>(res);
+}
 
-  /**
-   * Lấy danh sách hóa đơn (có filter)
-   * GET /finance/invoices
-   */
-  async listInvoices(params?: ListInvoicesParams): Promise<ApiSuccessResponse<any[]>> {
-    const response = await apiClient.get<ApiSuccessResponse<any[]>>("/finance/invoices", { params });
-    return response.data;
-  },
+export async function getReceipt(id: string): Promise<ReceiptResponse> {
+  const res = await apiClient.get(`/receipts/${id}`);
+  return unwrapApiData<ReceiptResponse>(res);
+}
 
-  /**
-   * Lấy chi tiết hóa đơn kèm lịch sử thanh toán
-   * GET /finance/invoices/:id
-   */
-  async getInvoice(id: string): Promise<ApiSuccessResponse<any>> {
-    const response = await apiClient.get<ApiSuccessResponse<any>>(`/finance/invoices/${id}`);
-    return response.data;
-  },
+export async function voidReceipt(
+  id: string,
+  body?: Record<string, unknown>,
+): Promise<ReceiptResponse> {
+  const res = await apiClient.post(`/receipts/${id}/void`, body ?? {});
+  return unwrapApiData<ReceiptResponse>(res);
+}
 
-  /**
-   * Tạo hóa đơn mới
-   * POST /finance/invoices
-   */
-  async createInvoice(payload: CreateInvoiceDto): Promise<ApiSuccessResponse<any>> {
-    const response = await apiClient.post<ApiSuccessResponse<any>>("/finance/invoices", payload);
-    return response.data;
-  },
+export async function getDebt(enrollmentId: string): Promise<DebtResponse> {
+  const res = await apiClient.get(`/enrollments/${enrollmentId}/debt`);
+  return unwrapApiData<DebtResponse>(res);
+}
 
-  /**
-   * Cập nhật trạng thái hóa đơn
-   * PATCH /finance/invoices/:id/status
-   */
-  async updateInvoiceStatus(id: string, payload: UpdateInvoiceStatusDto): Promise<ApiSuccessResponse<any>> {
-    const response = await apiClient.patch<ApiSuccessResponse<any>>(`/finance/invoices/${id}/status`, payload);
-    return response.data;
-  },
+export interface PaymentStatusListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  programCode?: string;
+  classId?: string;
+  minDebt?: number;
+}
 
-  /**
-   * Ghi nhận thanh toán
-   * POST /finance/payments
-   */
-  async createPayment(payload: CreatePaymentDto): Promise<ApiSuccessResponse<any>> {
-    const response = await apiClient.post<ApiSuccessResponse<any>>("/finance/payments", payload);
-    return response.data;
-  },
+export async function getPaymentStatus(
+  params?: PaymentStatusListParams,
+): Promise<PagedResponse<PaymentStatusItem>> {
+  const res = await apiClient.get('/finance/payment-status', {
+    params: params ? compactParams(params as Record<string, unknown>) : undefined,
+  });
+  return unwrapApiData<PagedResponse<PaymentStatusItem>>(res);
+}
 
-  /**
-   * Lấy tóm tắt tài chính của một học học viên
-   * GET /students/:id/finance
-   */
-  async getStudentFinance(studentId: string): Promise<ApiSuccessResponse<RawStudentFinance>> {
-    const response = await apiClient.get<ApiSuccessResponse<RawStudentFinance>>(`/students/${studentId}/finance`);
-    return response.data;
-  },
+export interface FinanceDashboardParams {
+  month?: number;
+  year: number;
+  quarter?: number;
+  yearFrom?: number;
+  yearTo?: number;
+}
 
-  /**
-   * Xuất danh sách hóa đơn ra file Excel.
-   * Route BE: GET /finance/invoices/export
-   * Params: status?, overdue?, fromDate?, toDate? (đều optional)
-   *
-   * Edge case "không có data": BE vẫn trả file hợp lệ với sheet "No Data".
-   * FE download bình thường, người dùng thấy sheet báo "Không có dữ liệu".
-   */
-  async exportFinanceExcel(params?: ListInvoicesParams): Promise<void> {
-    const { downloadExcelFromApi } = await import('@/shared/lib/excel');
-    const filename = `HoaDon_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    await downloadExcelFromApi('/finance/invoices/export', (params as Record<string, unknown>) ?? {}, filename);
-  },
+export async function getDashboard(
+  params: FinanceDashboardParams | Record<string, unknown>,
+): Promise<DashboardData> {
+  const res = await apiClient.get('/finance/dashboard', {
+    params: compactParams(params as Record<string, unknown>),
+  });
+  return unwrapApiData<DashboardData>(res);
+}
 
-  /**
-   * Danh sách trạng thái thanh toán học sinh (đã đóng/chưa đóng theo enrollment+invoice)
-   * GET /finance/student-payment-status
-   */
-  async listStudentPaymentStatus(params?: {
-    paymentStatus?: 'paid' | 'unpaid' | 'partial' | 'overdue' | 'no_invoice';
-    classId?: string;
-    programId?: string;
-    keyword?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<ApiSuccessResponse<{ items: unknown[]; total: number; limit: number; offset: number }>> {
-    const response = await apiClient.get<ApiSuccessResponse<{ items: unknown[]; total: number; limit: number; offset: number }>>(
-      '/finance/student-payment-status',
-      { params }
-    );
-    return response.data;
-  },
+export interface PayrollPreviewParams {
+  teacherId: string;
+  month: number;
+  year: number;
+}
 
-  /**
-   * Xuất danh sách trạng thái thanh toán học sinh ra Excel
-   * GET /finance/student-payment-status/export
-   */
-  async exportStudentPaymentStatusExcel(params?: {
-    paymentStatus?: 'paid' | 'unpaid' | 'partial' | 'overdue' | 'no_invoice';
-    classId?: string;
-    programId?: string;
-    keyword?: string;
-  }): Promise<void> {
-    const { downloadExcelFromApi } = await import('@/shared/lib/excel');
-    const filename = `TrangThaiThanhToan_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    await downloadExcelFromApi(
-      '/finance/student-payment-status/export',
-      (params as Record<string, unknown>) ?? {},
-      filename
-    );
-  },
+export async function previewPayroll(params: PayrollPreviewParams): Promise<PayrollPreview> {
+  const res = await apiClient.get('/payroll/preview', {
+    params: compactParams(params as unknown as Record<string, unknown>),
+  });
+  return unwrapApiData<PayrollPreview>(res);
+}
 
-  /**
-   * Xuất danh sách thanh toán (payments) ra Excel
-   * Route BE: GET /finance/payments/export
-   */
-  async exportPaymentsExcel(params?: ExportPaymentsParams): Promise<void> {
-    const { downloadExcelFromApi } = await import('@/shared/lib/excel');
-    const filename = `Payments_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    await downloadExcelFromApi(
-      '/finance/payments/export',
-      (params as Record<string, unknown>) ?? {},
-      filename,
-    );
+export interface FinalizePayrollBody {
+  teacherId: string;
+  month: number;
+  year: number;
+}
+
+export async function finalizePayroll(data: FinalizePayrollBody): Promise<PayrollRecord> {
+  const res = await apiClient.post('/payroll/finalize', data);
+  return unwrapApiData<PayrollRecord>(res);
+}
+
+export interface PayrollsListParams {
+  page?: number;
+  limit?: number;
+  teacherId?: string;
+  month?: number;
+  year?: number;
+}
+
+export async function getPayrolls(params?: PayrollsListParams): Promise<PagedResponse<PayrollRecord>> {
+  const res = await apiClient.get('/payroll', {
+    params: params ? compactParams(params as Record<string, unknown>) : undefined,
+  });
+  return unwrapApiData<PagedResponse<PayrollRecord>>(res);
+}
+
+export async function getPayroll(id: string): Promise<PayrollRecordDetail> {
+  const res = await apiClient.get(`/payroll/${id}`);
+  return unwrapApiData<PayrollRecordDetail>(res);
+}
+
+export interface RefundRequestsListParams {
+  page?: number;
+  limit?: number;
+  status?: string;
+}
+
+export async function getRefundRequests(
+  params?: RefundRequestsListParams,
+): Promise<PagedResponse<RefundRequest>> {
+  const res = await apiClient.get('/refund-requests', {
+    params: params ? compactParams(params as Record<string, unknown>) : undefined,
+  });
+  return unwrapApiData<PagedResponse<RefundRequest>>(res);
+}
+
+export async function createRefundRequest(data: Record<string, unknown>): Promise<RefundRequest> {
+  const res = await apiClient.post('/refund-requests', data);
+  return unwrapApiData<RefundRequest>(res);
+}
+
+export async function approveRefund(id: string, note?: string): Promise<void> {
+  await apiClient.patch(`/refund-requests/${id}/approve`, note !== undefined ? { note } : {});
+}
+
+export async function rejectRefund(id: string, reviewNote: string): Promise<void> {
+  await apiClient.patch(`/refund-requests/${id}/reject`, { reviewNote });
+}
+
+export interface ExportJobStatusResponse {
+  jobId: string;
+  status: 'processing' | 'done' | 'failed' | string;
+  downloadUrl?: string;
+  error?: string;
+}
+
+/** Trạng thái job xuất file lớn — GET /export/jobs/:jobId */
+export async function getExportJob(jobId: string): Promise<ExportJobStatusResponse> {
+  const res = await apiClient.get(`/export/jobs/${jobId}`);
+  return unwrapApiData<ExportJobStatusResponse>(res);
+}
+
+/**
+ * Tải báo cáo công nợ — GET /export/debt.
+ * File trả ngay khi `Content-Disposition` / body là file; nếu JSON `{ jobId, status: 'processing' }` thì poll rồi tải.
+ */
+export async function exportDebtReport(
+  params?: Record<string, unknown>,
+  options?: {
+    onJobStarted?: (jobId: string) => void;
+    pollIntervalMs?: number;
   },
-};
+): Promise<Blob> {
+  const res = await apiClient.get<ArrayBuffer>('/export/debt', {
+    params: params ? compactParams(params as Record<string, unknown>) : undefined,
+    responseType: 'arraybuffer',
+  });
+  const ct = String(res.headers['content-type'] ?? '');
+  const buf = res.data;
+  if (ct.includes('application/json')) {
+    const json = JSON.parse(new TextDecoder().decode(buf)) as {
+      jobId?: string;
+      status?: string;
+      downloadUrl?: string;
+      error?: string;
+    };
+    if (json.jobId && json.status === 'processing') {
+      options?.onJobStarted?.(json.jobId);
+      const interval = options?.pollIntervalMs ?? 2000;
+      const maxAttempts = 90;
+      for (let i = 0; i < maxAttempts; i++) {
+        await new Promise((r) => setTimeout(r, interval));
+        const st = await getExportJob(json.jobId);
+        if (st.status === 'done' && st.downloadUrl) {
+          const fileRes = await apiClient.get<ArrayBuffer>(st.downloadUrl, { responseType: 'arraybuffer' });
+          return new Blob([fileRes.data]);
+        }
+        if (st.status === 'failed') {
+          throw new Error(st.error ?? 'Export thất bại');
+        }
+      }
+      throw new Error('Hết thời gian chờ xuất file');
+    }
+  }
+  return new Blob([buf], { type: ct || undefined });
+}

@@ -1,6 +1,8 @@
 /* index.css */
 /* Entry point CSS – import Tailwind v4 và các file cục bộ */
 
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Instrument+Sans:ital,opsz,wght@0,14..72,400..700;1,14..72,400..700&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap");
+
 /* Tailwind v4: import thay vì @tailwind directives */
 @import "tailwindcss";
 
@@ -11,6 +13,188 @@
 @import "./utilities.css";
 
 /* ========================
+   Design tokens — Light: indigo-tinted base + #6c63ff brand
+   Dark: zinc-deep + cùng accent thương hiệu
+======================== */
+
+:root {
+  color-scheme: light;
+
+  /* Backgrounds — indigo-tinted, không plain white làm base trang */
+  --bg-base: #f5f5ff;
+  --bg-surface: #ffffff;
+  --bg-elevated: #fafaff;
+  --bg-subtle: #ededfa;
+  --bg-overlay: #e4e4f7;
+  --bg-sidebar: #ffffff;
+
+  /* Borders — pha indigo nhạt */
+  --border-subtle: rgba(108, 99, 255, 0.08);
+  --border-default: rgba(108, 99, 255, 0.15);
+  --border-strong: rgba(108, 99, 255, 0.28);
+
+  /* Text — near-black có tint indigo */
+  --text-primary: #1a1740;
+  --text-secondary: #4b4880;
+  --text-muted: #8b88bb;
+  --text-disabled: #c4c2de;
+
+  /* Brand — GIỮ #6c63ff ở cả hai mode */
+  --accent: #6c63ff;
+  --accent-hover: #5b52e8;
+  --accent-subtle: rgba(108, 99, 255, 0.08);
+  --accent-border: rgba(108, 99, 255, 0.25);
+  --accent-text: #4943c9;
+
+  /* Status — light: đậm vừa trên nền sáng */
+  --success: #15803d;
+  --success-bg: #f0fdf4;
+  --success-border: rgba(21, 128, 61, 0.2);
+  --success-text: #166534;
+
+  --warning: #b45309;
+  --warning-bg: #fffbeb;
+  --warning-border: rgba(180, 83, 9, 0.2);
+  --warning-text: #92400e;
+
+  --danger: #b91c1c;
+  --danger-bg: #fef2f2;
+  --danger-border: rgba(185, 28, 28, 0.2);
+  --danger-text: #991b1b;
+
+  --info: #0e7490;
+  --info-bg: #ecfeff;
+  --info-border: rgba(14, 116, 144, 0.2);
+  --info-text: #155e75;
+
+  /* Enrollment badge */
+  --badge-pending-bg: #f1f5f9;
+  --badge-pending-text: #475569;
+  --badge-trial-bg: #eef2ff;
+  --badge-trial-text: #4338ca;
+  --badge-active-bg: #f0fdf4;
+  --badge-active-text: #166534;
+  --badge-paused-bg: #fffbeb;
+  --badge-paused-text: #92400e;
+  --badge-transferred-bg: #f5f3ff;
+  --badge-transferred-text: #5b21b6;
+  --badge-dropped-bg: #fef2f2;
+  --badge-dropped-text: #991b1b;
+  --badge-completed-bg: #ecfeff;
+  --badge-completed-text: #155e75;
+
+  /* Role */
+  --role-admin: #7c3aed;
+  --role-academic: #6c63ff;
+  --role-accountant: #d97706;
+  --role-teacher: #0e7490;
+
+  /* Shadow — light: rõ hơn (indigo-tint) */
+  --shadow-xs: 0 1px 2px rgba(26, 23, 64, 0.06);
+  --shadow-sm: 0 1px 3px rgba(26, 23, 64, 0.08), 0 1px 2px rgba(26, 23, 64, 0.05);
+  --shadow-md: 0 4px 8px rgba(26, 23, 64, 0.08), 0 2px 4px rgba(26, 23, 64, 0.05);
+  --shadow-lg: 0 10px 20px rgba(26, 23, 64, 0.1), 0 4px 8px rgba(26, 23, 64, 0.06);
+  --shadow-card: 0 1px 4px rgba(26, 23, 64, 0.07), 0 0 0 1px rgba(108, 99, 255, 0.06);
+  --shadow-focus: 0 0 0 3px rgba(108, 99, 255, 0.2);
+
+  /* Legacy / chart helpers */
+  --status-pending: var(--badge-pending-text);
+  --status-trial: var(--badge-trial-text);
+  --status-active: var(--badge-active-text);
+  --status-paused: var(--badge-paused-text);
+  --status-transferred: var(--badge-transferred-text);
+  --status-dropped: var(--badge-dropped-text);
+  --status-completed: var(--badge-completed-text);
+
+  --color-bg: var(--bg-base);
+  --color-surface: var(--bg-surface);
+  --color-text: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+  --color-primary: var(--accent);
+  --color-border: var(--border-default);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --bg-base: #0a0a0f;
+  --bg-surface: #111118;
+  --bg-elevated: #1a1a24;
+  --bg-subtle: #22222e;
+  --bg-overlay: #2a2a38;
+  --bg-sidebar: #111118;
+
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+
+  --text-primary: #f0f0f5;
+  --text-secondary: #9898b0;
+  --text-muted: #5a5a72;
+  --text-disabled: #3a3a50;
+
+  --accent: #6c63ff;
+  --accent-hover: #7d75ff;
+  --accent-subtle: rgba(108, 99, 255, 0.12);
+  --accent-border: rgba(108, 99, 255, 0.35);
+  --accent-text: #a5b4fc;
+
+  --success: #22c55e;
+  --success-bg: rgba(34, 197, 94, 0.1);
+  --success-border: rgba(34, 197, 94, 0.25);
+  --success-text: #4ade80;
+
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --warning-border: rgba(245, 158, 11, 0.25);
+  --warning-text: #fcd34d;
+
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --danger-border: rgba(239, 68, 68, 0.25);
+  --danger-text: #fca5a5;
+
+  --info: #06b6d4;
+  --info-bg: rgba(6, 182, 212, 0.1);
+  --info-border: rgba(6, 182, 212, 0.25);
+  --info-text: #67e8f9;
+
+  --badge-pending-bg: rgba(255, 255, 255, 0.06);
+  --badge-pending-text: #9898b0;
+  --badge-trial-bg: rgba(108, 99, 255, 0.12);
+  --badge-trial-text: #a5b4fc;
+  --badge-active-bg: rgba(34, 197, 94, 0.1);
+  --badge-active-text: #4ade80;
+  --badge-paused-bg: rgba(245, 158, 11, 0.1);
+  --badge-paused-text: #fcd34d;
+  --badge-transferred-bg: rgba(167, 139, 250, 0.12);
+  --badge-transferred-text: #c4b5fd;
+  --badge-dropped-bg: rgba(239, 68, 68, 0.1);
+  --badge-dropped-text: #fca5a5;
+  --badge-completed-bg: rgba(6, 182, 212, 0.1);
+  --badge-completed-text: #67e8f9;
+
+  --role-admin: #c4b5fd;
+  --role-academic: #a5b4fc;
+  --role-accountant: #fcd34d;
+  --role-teacher: #67e8f9;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-focus: 0 0 0 3px rgba(108, 99, 255, 0.3);
+
+  --color-bg: var(--bg-base);
+  --color-surface: var(--bg-surface);
+  --color-text: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+  --color-primary: var(--accent);
+  --color-border: var(--border-default);
+}
+
+/* ========================
    Overrides & base styles
 ======================== */
 
@@ -19,13 +203,53 @@ html {
   scroll-behavior: smooth;
 }
 
-body {
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  -webkit-font-smoothing: antialiased;
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
 }
 
-/* Link không có underline mặc định */
+body {
+  margin: 0;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+/* Scrollbar — light / dark theo token */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-subtle);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+}
+
+/* Focus */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Link không có underline mặc định; màu kế thừa nếu không có utility text-* trên thẻ */
 a {
   text-decoration: none;
   color: inherit;
@@ -45,4 +269,42 @@ select {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* In ấn: ẩn chrome ứng dụng — dùng kèm .printable / trang chi tiết */
+@media print {
+  @page {
+    margin: 2cm;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .sidebar,
+  aside,
+  header.app-no-print,
+  .no-print,
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  .printable,
+  .payroll-print-root {
+    border: 1px solid #e5e7eb !important;
+    background: #fff !important;
+    color: #18181b !important;
+  }
+
+  .card,
+  .card-base {
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+
+  .page-break-before {
+    page-break-before: always;
+  }
 }

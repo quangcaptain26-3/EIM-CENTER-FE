@@ -1,23 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
-/**
- * Hook debounce: Trì hoãn việc cập nhật giá trị sau một khoảng thời gian (delay)
- * Rất hữu ích khi làm chức năng search/gõ phím
- */
-export const useDebounce = <T>(value: T, delayMs: number = 500): T => {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+export function useDebounce<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
 
   useEffect(() => {
-    // Cài đặt timer cập nhật debounce sau delayMs
-    const timer = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delayMs);
-
-    // Xoá timer nếu value thay đổi lại liên tục chưa đến delayMs (cleanup)
-    return () => {
-      clearTimeout(timer);
-    };
+    const id = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(id);
   }, [value, delayMs]);
 
-  return debouncedValue;
-};
+  return debounced;
+}

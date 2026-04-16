@@ -1,26 +1,85 @@
 /**
- * @file currency.ts
- * @description Các hàm tiện ích để xử lý định dạng tiền tệ (VND).
- */
-
-/**
- * Định dạng số thành chuỗi tiền tệ VND.
- * Ví dụ: 1500000 -> "1.500.000 ₫"
+ * Format số thành tiền tệ VND
+ * VD: 2500000 -> "2.500.000 ₫"
+ * VD: -500000 -> "-500.000 ₫"
  */
 export function formatVND(amount: number): string {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
+  if (isNaN(amount)) return '0 ₫';
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
   }).format(amount);
 }
 
+const ONES = ['', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+const TEENS = [
+  'mười', 'mười một', 'mười hai', 'mười ba', 'mười bốn',
+  'mười lăm', 'mười sáu', 'mười bảy', 'mười tám', 'mười chín',
+];
+
+function threeDigits(n: number): string {
+  if (n === 0) return '';
+  const hundreds = Math.floor(n / 100);
+  const remainder = n % 100;
+  const tens = Math.floor(remainder / 10);
+  const ones = remainder % 10;
+  const parts: string[] = [];
+
+  if (hundreds > 0) parts.push(`${ONES[hundreds]} trăm`);
+
+  if (remainder === 0) {
+    // Không làm gì thêm
+  } else if (remainder < 10) {
+    parts.push(`lẻ ${ONES[ones]}`);
+  } else if (remainder < 20) {
+    parts.push(TEENS[remainder - 10]);
+  } else {
+    let tensWord = `${ONES[tens]} mươi`;
+    if (ones === 0) {
+      // 20, 30...
+    } else if (ones === 1) {
+      tensWord += ' mốt';
+    } else if (ones === 5) {
+      tensWord += ' lăm';
+    } else {
+      tensWord += ` ${ONES[ones]}`;
+    }
+    parts.push(tensWord);
+  }
+
+  return parts.join(' ');
+}
+
 /**
- * Chuyển một chuỗi định dạng tiền tệ ngược lại thành số.
- * Ví dụ: "1.500.000 ₫" -> 1500000
+ * Chuyển số tiền VND sang chữ (tiếng Việt), xử lý đơn vị tỷ, số nguyên âm/hoặc không
  */
-export function parseVND(str: string): number {
-  // Loại bỏ các ký tự không phải số (giữ lại dấu âm nếu có)
-  const cleanStr = str.replace(/[^\d-]/g, "");
-  const num = parseInt(cleanStr, 10);
-  return isNaN(num) ? 0 : num;
+export function amountToWordsVi(amount: number): string {
+  if (!Number.isFinite(amount)) return '';
+  const isNegative = amount < 0;
+  const abs = Math.abs(Math.round(amount));
+
+  if (abs === 0) return 'Không đồng';
+
+  const dong = abs % 1000;
+  const nghin = Math.floor(abs / 1000) % 1000;
+  const trieu = Math.floor(abs / 1000000) % 1000;
+  const ty = Math.floor(abs / 1000000000);
+
+  const parts: string[] = [];
+
+  if (ty > 0) parts.push(`${threeDigits(ty)} tỷ`);
+  if (trieu > 0) parts.push(`${threeDigits(trieu)} triệu`);
+  if (nghin > 0) parts.push(`${threeDigits(nghin)} nghìn`);
+  if (dong > 0) parts.push(threeDigits(dong));
+
+  let result = parts.join(' ').trim();
+  result = result.charAt(0).toUpperCase() + result.slice(1);
+  const suffix = dong === 0 ? 'đồng chẵn' : 'đồng';
+  result = `${result} ${suffix}`;
+
+  if (isNegative) {
+    result = `Âm ${result.charAt(0).toLowerCase()}${result.slice(1)}`;
+  }
+
+  return result;
 }

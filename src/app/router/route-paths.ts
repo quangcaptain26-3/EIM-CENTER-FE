@@ -1,69 +1,75 @@
-// route-paths.ts
-// Tập trung tất cả đường dẫn (path) của ứng dụng vào một nơi.
-// Luôn dùng RoutePaths thay vì viết string path trực tiếp để tránh lỗi typo.
-
+/**
+ * Central route paths. `RoutePaths` dùng trong router; `PATHS` alias cho menu/layout cũ.
+ */
 export const RoutePaths = {
-  // ── Chung ────────────────────────────────────────
   ROOT: '/',
   LOGIN: '/login',
+  DASHBOARD: '/',
 
-  // ── Tổng quan ────────────────────────────────────
-  DASHBOARD: '/dashboard',
+  USERS: '/users',
+  USER_DETAIL: '/users/:id',
+  USER_CREATE: '/users/create',
+  USER_EDIT: '/users/:id/edit',
+  USER_MANAGEMENT: '/users',
 
-  // ── Chương trình học ─────────────────────────────
+  STUDENTS: '/students',
+  STUDENT_NEW: '/students/create',
+  STUDENT_DETAIL: '/students/:id',
+  STUDENT_EDIT: '/students/:id/edit',
+  STUDENT_SCORE_HISTORY: '/students/:studentId/scores',
+
   CURRICULUM_ROOT: '/curriculum',
   CURRICULUM_PROGRAMS: '/curriculum/programs',
   CURRICULUM_PROGRAM_NEW: '/curriculum/programs/new',
   CURRICULUM_PROGRAM_DETAIL: '/curriculum/programs/:programId',
   CURRICULUM_PROGRAM_EDIT: '/curriculum/programs/:programId/edit',
 
-  // ── Học viên ─────────────────────────────────────
-  STUDENTS: '/students',
-  STUDENT_NEW: '/students/new',
-  STUDENT_DETAIL: '/students/:id',
-  STUDENT_EDIT: '/students/:id/edit',
-  // Trang lịch sử điểm số của một học viên cụ thể
-  STUDENT_SCORE_HISTORY: '/students/:studentId/scores',
-
-  // ── Lớp học ──────────────────────────────────────
   CLASSES: '/classes',
-  CLASS_NEW: '/classes/new',
+  CLASS_NEW: '/classes/create',
   CLASS_DETAIL: '/classes/:classId',
   CLASS_EDIT: '/classes/:classId/edit',
-
-  // ── Buổi học (Sessions) ──────────────────────────
   SESSIONS: '/sessions',
-  MY_SESSIONS: '/my-sessions',
   SESSIONS_LIST: '/classes/:classId/sessions',
   SESSION_DETAIL: '/sessions/:sessionId',
-  // Trang nhập nhận xét & điểm số cho một buổi học cụ thể
   SESSION_FEEDBACK: '/sessions/:sessionId/feedback',
+  MY_SESSIONS: '/my-sessions',
 
-  // ── Thử học ──────────────────────────────────────
   TRIALS: '/trials',
   TRIAL_CREATE: '/trials/new',
   TRIAL_DETAIL: '/trials/:id',
   TRIAL_EDIT: '/trials/:id/edit',
 
-  // ── Tài chính ────────────────────────────────────
   FINANCE_ROOT: '/finance',
   FEE_PLANS: '/finance/fee-plans',
-  INVOICES: '/finance/invoices',       // Danh sách hóa đơn
+  INVOICES: '/finance/invoices',
   INVOICE_DETAIL: '/finance/invoices/:id',
-  STUDENT_PAYMENT_STATUS: '/finance/student-payment-status', // Danh sách đã đóng/chưa đóng
-  STUDENT_FINANCE: '/finance/enrollments/:enrollmentId',
+  STUDENT_PAYMENT_STATUS: '/finance/payment-status',
+  STUDENT_FINANCE: '/finance/students/:enrollmentId',
+  RECEIPTS: '/finance/receipts',
+  RECEIPT_NEW: '/finance/receipts/create',
+  RECEIPT_DETAIL: '/finance/receipts/:id',
+  PAYMENT_STATUS: '/finance/payment-status',
+  FINANCE_DASHBOARD: '/finance/dashboard',
+  REFUND_REQUESTS: '/finance/refund-requests',
+  PAYROLL: '/payroll',
+  PAYROLL_NEW: '/payroll/create',
+  PAYROLL_DETAIL: '/payroll/:id',
 
-  // ── Hệ thống ─────────────────────────────────────
   SYSTEM_ROOT: '/system',
-  NOTIFICATIONS: '/notifications',
+  NOTIFICATIONS: '/system/notifications',
   AUDIT_LOGS: '/system/audit-logs',
-  USER_MANAGEMENT: '/system/users',
-  USERS: '/system/users', // Giữ lại để tránh break code cũ nếu có chỗ dùng
+  DEMO_CONTROL_CENTER: '/system/demo',
 
-  // ── Trang lỗi ────────────────────────────────────
-  FORBIDDEN: '/forbidden',  // 403 – không có quyền
-  NOT_FOUND: '*',           // 404 – không tìm thấy trang
+  PAUSE_REQUESTS: '/pause-requests',
+  MAKEUP_SESSIONS: '/makeup-sessions',
+  SEARCH: '/search',
+
+  FORBIDDEN: '/forbidden',
+  NOT_FOUND: '*',
 } as const;
 
-// Type suy ra cho các giá trị path (dùng khi cần kiểu tường minh)
-export type RoutePath = (typeof RoutePaths)[keyof typeof RoutePaths];
+export type RoutePathKey = keyof typeof RoutePaths;
+export type RoutePathValue = (typeof RoutePaths)[RoutePathKey];
+
+/** @deprecated Dùng RoutePaths — giữ để sidebar / import cũ */
+export const PATHS = RoutePaths;

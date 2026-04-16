@@ -1,84 +1,159 @@
-// button.tsx
-// Nút bấm cơ bản dùng chung toàn hệ thống, tự động gộp class CSS.
+import {
+  cloneElement,
+  forwardRef,
+  isValidElement,
+  type ButtonHTMLAttributes,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
+import { Loader2 } from 'lucide-react';
+import { cn } from '@/shared/lib/cn';
 
-import { type ButtonHTMLAttributes, forwardRef } from "react";
-import { cn } from "../lib/cn";
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
+export type ButtonSize = 'sm' | 'md' | 'lg' | 'icon' | 'icon-sm';
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "danger" | "ghost";
-  size?: "sm" | "md" | "lg";
-  loading?: boolean;
+type AnyRecord = Record<string, unknown>;
+
+function mergeEventHandlers(
+  theirs: unknown,
+  ours: unknown,
+): ((e: unknown) => void) | undefined {
+  if (typeof theirs !== 'function' && typeof ours !== 'function') return undefined;
+  return (e: unknown) => {
+    if (typeof theirs === 'function') (theirs as (ev: unknown) => void)(e);
+    if (typeof ours === 'function') (ours as (ev: unknown) => void)(e);
+  };
 }
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    {
-      className,
-      variant = "primary",
-      size = "md",
-      loading,
-      children,
-      disabled,
-      ...props
-    },
-    ref,
-  ) => {
-    // Class mặc định
-    const baseClass =
-      "inline-flex items-center justify-center rounded-lg font-medium transition-colors focus:ring-2 focus:ring-offset-2 disabled:opacity-70 disabled:pointer-events-none cursor-pointer";
+function assignRef<T>(r: React.Ref<T> | undefined, node: T | null) {
+  if (r == null) return;
+  if (typeof r === 'function') r(node);
+  else (r as React.MutableRefObject<T | null>).current = node;
+}
 
-    // Variant styles
-    const variants = {
-      primary:
-        "bg-[var(--color-primary)] text-white hover:bg-blue-700 focus:ring-blue-500 border border-transparent",
-      secondary:
-        "bg-white text-[var(--color-text)] border border-[var(--color-border)] hover:bg-gray-50",
-      danger:
-        "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 border border-transparent",
-      ghost:
-        "bg-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-gray-100",
-    };
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  loading?: boolean;
+  /** @deprecated dùng `loading` */
+  isLoading?: boolean;
+  leftIcon?: ReactNode;
+  rightIcon?: ReactNode;
+  asChild?: boolean;
+}
 
-    // Size styles
-    const sizes = {
-      sm: "h-8 px-3 text-xs",
-      md: "h-10 px-4 text-sm",
-      lg: "h-12 px-6 text-base",
-    };
-
-    return (
-      <button
-        ref={ref}
-        className={cn(baseClass, variants[variant], sizes[size], className)}
-        disabled={disabled || loading}
-        {...props}
-      >
-        {loading && (
-          <svg
-            className="animate-spin -ml-1 mr-2 h-4 w-4"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            ></circle>
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
-        )}
-        {children}
-      </button>
-    );
-  },
+const baseClass = cn(
+  'inline-flex items-center justify-center font-medium',
+  'transition-[transform,box-shadow,background-color,border-color,color] duration-200',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/35',
+  'focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-base)]',
+  'disabled:opacity-40 disabled:pointer-events-none',
 );
 
-Button.displayName = "Button";
+const variantClass: Record<ButtonVariant, string> = {
+  primary: cn(
+    'border border-transparent bg-[var(--accent)] text-white shadow-sm',
+    'hover:bg-[var(--accent-hover)]',
+    'active:scale-[0.97]',
+  ),
+  secondary: cn(
+    'border border-[var(--border-default)] bg-[var(--bg-subtle)] text-[var(--text-primary)]',
+    'hover:bg-[var(--bg-overlay)]',
+    'active:bg-[var(--bg-overlay)]',
+  ),
+  ghost: cn(
+    'border border-transparent bg-transparent text-[var(--text-secondary)]',
+    'hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]',
+    'active:bg-[var(--bg-overlay)]',
+  ),
+  danger: cn(
+    'border border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]',
+    'hover:bg-[var(--danger)] hover:text-white hover:border-[var(--danger)]',
+    'active:scale-[0.97]',
+  ),
+  outline: cn(
+    'border border-[var(--border-default)] bg-transparent text-[var(--text-primary)]',
+    'hover:bg-[var(--bg-subtle)]',
+    'active:bg-[var(--bg-overlay)]',
+  ),
+};
+
+const sizeClass: Record<ButtonSize, string> = {
+  sm: 'h-7 gap-1.5 px-2.5 text-sm rounded-md',
+  md: 'h-9 gap-2 px-3.5 text-sm rounded-lg',
+  lg: 'h-11 gap-2 px-4 text-base rounded-lg',
+  icon: 'size-9 shrink-0 rounded-lg p-0',
+  'icon-sm': 'size-7 shrink-0 rounded-md p-0',
+};
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    className,
+    variant = 'primary',
+    size = 'md',
+    loading,
+    isLoading,
+    leftIcon,
+    rightIcon,
+    asChild = false,
+    disabled,
+    children,
+    type = 'button',
+    ...props
+  },
+  ref,
+) {
+  const showLoading = loading ?? isLoading ?? false;
+  const isDisabled = Boolean(disabled || showLoading);
+
+  const classes = cn(baseClass, variantClass[variant], sizeClass[size], className);
+
+  const adornmentStart = showLoading ? (
+    <Loader2 className="size-4 shrink-0 animate-spin" strokeWidth={1.5} aria-hidden />
+  ) : (
+    leftIcon
+  );
+
+  if (asChild && isValidElement(children)) {
+    const child = children as ReactElement<AnyRecord>;
+    const cp = child.props as AnyRecord;
+    const { onClick, className: childClass, ref: childRef, children: childChildren, ...childRest } = cp;
+
+    // eslint-disable-next-line react-hooks/refs -- asChild: gộp ref cha/con qua callback, không đọc .current trong render
+    return cloneElement(child, {
+      ...childRest,
+      ...props,
+      ref: (node: HTMLElement | null) => {
+        assignRef(ref, node);
+        assignRef(childRef as React.Ref<HTMLElement> | undefined, node);
+      },
+      className: cn(classes, childClass as string | undefined),
+      onClick: mergeEventHandlers(onClick, props.onClick),
+      'aria-disabled': isDisabled || undefined,
+      tabIndex: isDisabled ? -1 : (cp.tabIndex as number | undefined),
+      children: (
+        <>
+          {adornmentStart ? <span className="inline-flex shrink-0">{adornmentStart}</span> : null}
+          {childChildren}
+          {rightIcon && !showLoading ? (
+            <span className="inline-flex shrink-0">{rightIcon}</span>
+          ) : null}
+        </>
+      ),
+    } as never);
+  }
+
+  return (
+    <button ref={ref} type={type} disabled={isDisabled} className={classes} {...props}>
+      {adornmentStart ? <span className="inline-flex shrink-0">{adornmentStart}</span> : null}
+      {children != null && children !== false ? (
+        <span className={cn(size === 'icon' || size === 'icon-sm' ? 'sr-only' : 'truncate')}>
+          {children}
+        </span>
+      ) : null}
+      {rightIcon && !showLoading ? <span className="inline-flex shrink-0">{rightIcon}</span> : null}
+    </button>
+  );
+});
+
+Button.displayName = 'Button';

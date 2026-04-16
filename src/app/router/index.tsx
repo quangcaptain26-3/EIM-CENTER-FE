@@ -1,469 +1,382 @@
-// index.tsx
-// Cấu hình router trung tâm cập nhật bọc DashboardLayout cho các pages bên trong.
+/* eslint-disable react-refresh/only-export-components -- router factory cùng file với wrapper layout */
+import { Suspense, type ReactElement } from 'react';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { useAppSelector } from '@/app/store/hooks';
+import { selectIsAuthenticated, selectIsInitialized } from '@/app/store/auth.selectors';
+import { RoutePaths } from '@/app/router/route-paths';
+import ProtectedRoute from '@/app/router/protected-route';
+import RoleGuard from '@/app/router/role-guard';
+import { UserDetailAccess } from '@/app/router/user-detail-access';
+import { DashboardLayout } from '@/presentation/layouts/dashboard-layout';
+import { DefaultRedirectPage } from '@/app/router/default-redirect-page';
+import { PageLoader } from '@/presentation/layouts/page-loader';
+import { ROLES } from '@/shared/constants/roles';
+import * as P from '@/app/router/lazy-pages';
 
-import { createBrowserRouter, Navigate } from "react-router-dom";
-import { useAppSelector } from "@/app/store/hooks";
-import { RoutePaths } from "@/app/router/route-paths";
-import ProtectedRoute from "@/app/router/protected-route";
-import { DashboardLayout } from "@/presentation/layouts/dashboard-layout";
+const { ADMIN, ACADEMIC, ACCOUNTANT, TEACHER } = ROLES;
 
-// Pages
-import LoginPage from "@/presentation/pages/auth/login.page";
-import DashboardPage from "@/presentation/pages/dashboard/dashboard.page";
-import ForbiddenPage from "@/presentation/pages/errors/forbidden.page";
-import NotFoundPage from "@/presentation/pages/errors/not-found.page";
-import RoleGuard from "@/app/router/role-guard";
-import { DefaultRedirectPage } from "@/app/router/default-redirect-page";
-import { AppRoles } from "@/shared/constants/roles";
+const S = (el: ReactElement) => <Suspense fallback={<PageLoader />}>{el}</Suspense>;
 
-// Curriculum Pages
-import { ProgramListPage } from "@/presentation/pages/curriculum/program-list.page";
-import { ProgramDetailPage } from "@/presentation/pages/curriculum/program-detail.page";
-import { ProgramFormPage } from "@/presentation/pages/curriculum/program-form.page";
-
-// Students Pages
-import StudentListPage from "@/presentation/pages/students/student-list.page";
-import StudentDetailPage from "@/presentation/pages/students/student-detail.page";
-import StudentFormPage from "@/presentation/pages/students/student-form.page";
-
-// Classes Pages
-import { ClassListPage } from "@/presentation/pages/classes/class-list.page";
-import { ClassFormPage } from "@/presentation/pages/classes/class-form.page";
-import ClassDetailPage from "@/presentation/pages/classes/class-detail.page";
-
-// Sessions Pages
-import SessionDetailPage from "@/presentation/pages/sessions/session-detail.page";
-import SessionListPage from "@/presentation/pages/sessions/session-list.page";
-import MySessionsPage from "@/presentation/pages/sessions/my-sessions.page";
-
-// Feedback Pages
-import SessionFeedbackPage from "@/presentation/pages/feedback/session-feedback.page";
-import StudentScoreHistoryPage from "@/presentation/pages/feedback/student-score-history.page";
-
-// Trials Pages
-import TrialListPage from "@/presentation/pages/trials/trial-list.page";
-import TrialDetailPage from "@/presentation/pages/trials/trial-detail.page";
-import TrialFormPage from "@/presentation/pages/trials/trial-form.page";
-
-// Finance Pages
-import FeePlanListPage from "@/presentation/pages/finance/fee-plan-list.page";
-import InvoiceListPage from "@/presentation/pages/finance/invoice-list.page";
-import InvoiceDetailPage from "@/presentation/pages/finance/invoice-detail.page";
-import StudentFinancePage from "@/presentation/pages/finance/student-finance.page";
-import StudentPaymentStatusListPage from "@/presentation/pages/finance/student-payment-status-list.page";
- 
-// System Pages
-import NotificationsPage from "@/presentation/pages/system/notifications.page";
-import AuditLogPage from "@/presentation/pages/system/audit-log.page";
-import UserManagementPage from "@/presentation/pages/system/user-management.page";
-
-// Wrapper check Auth Guard trước khi render Dashboard Layout
 const ProtectedDashboardLayout = () => {
-  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
-  const initialized = useAppSelector((s) => s.auth.initialized);
-
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const isInitialized = useAppSelector(selectIsInitialized);
   return (
-    <ProtectedRoute isAuthenticated={isAuthenticated} initialized={initialized}>
+    <ProtectedRoute isAuthenticated={isAuthenticated} isInitialized={isInitialized}>
       <DashboardLayout />
     </ProtectedRoute>
   );
 };
 
 export const router = createBrowserRouter([
+  { path: RoutePaths.ROOT, element: <DefaultRedirectPage /> },
+  { path: RoutePaths.LOGIN, element: S(<P.LazyLoginPage />) },
+  { path: RoutePaths.FORBIDDEN, element: S(<P.LazyForbiddenPage />) },
   {
-    path: RoutePaths.ROOT,
-    element: <DefaultRedirectPage />,
-  },
-  {
-    path: RoutePaths.LOGIN,
-    element: <LoginPage />,
-  },
-  {
-    // Layout bọc cấp root cho toàn hệ thống sau đăng nhập
-    path: "/",
+    path: '/',
     element: <ProtectedDashboardLayout />,
     children: [
+      { index: true, element: <P.LazyDashboardPage /> },
       {
-        path: RoutePaths.DASHBOARD,
-        element: <DashboardPage />,
+        path: RoutePaths.SEARCH,
+        element: <P.LazySearchPage />,
       },
-      // Module Học viên
+      {
+        path: RoutePaths.USERS,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN]}>
+            <P.LazyUserManagementPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: RoutePaths.USER_CREATE,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN]}>
+            <P.LazyUserCreatePage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: RoutePaths.USER_DETAIL,
+        element: (
+          <UserDetailAccess>
+            <P.LazyUserDetailPage />
+          </UserDetailAccess>
+        ),
+      },
       {
         path: RoutePaths.STUDENTS,
         element: (
-          <RoleGuard
-            allowedRoles={[
-              AppRoles.ROOT,
-              AppRoles.DIRECTOR,
-              AppRoles.ACADEMIC,
-              AppRoles.SALES, AppRoles.ACCOUNTANT,
-            ]}
-          >
-            <StudentListPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyStudentListPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.STUDENT_NEW,
         element: (
-          <RoleGuard
-            allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC, AppRoles.SALES, AppRoles.ACCOUNTANT]}
-          >
-            <StudentFormPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyStudentFormPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.STUDENT_DETAIL,
         element: (
-          <RoleGuard
-            allowedRoles={[
-              AppRoles.ROOT,
-              AppRoles.DIRECTOR,
-              AppRoles.ACADEMIC,
-              AppRoles.SALES, AppRoles.ACCOUNTANT,
-            ]}
-          >
-            <StudentDetailPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyStudentDetailPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.STUDENT_EDIT,
         element: (
-          <RoleGuard
-            allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC, AppRoles.SALES, AppRoles.ACCOUNTANT]}
-          >
-            <StudentFormPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyStudentFormPage />
           </RoleGuard>
         ),
-      },      // Module Chương trình học
+      },
+      {
+        path: RoutePaths.PAUSE_REQUESTS,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyPauseRequestsPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: RoutePaths.MAKEUP_SESSIONS,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyMakeupSessionsPage />
+          </RoleGuard>
+        ),
+      },
       {
         path: RoutePaths.CURRICULUM_PROGRAMS,
         element: (
-          <RoleGuard
-            allowedRoles={[
-              AppRoles.ROOT,
-              AppRoles.DIRECTOR,
-              AppRoles.ACADEMIC,
-              AppRoles.SALES, AppRoles.ACCOUNTANT,
-              AppRoles.TEACHER,
-            ]}
-          >
-            <ProgramListPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC, ACCOUNTANT, TEACHER]}>
+            <P.LazyProgramListPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.CURRICULUM_PROGRAM_NEW,
         element: (
-          <RoleGuard
-            allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC]}
-          >
-            <ProgramFormPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyProgramFormPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.CURRICULUM_PROGRAM_DETAIL,
         element: (
-          <RoleGuard
-            allowedRoles={[
-              AppRoles.ROOT,
-              AppRoles.DIRECTOR,
-              AppRoles.ACADEMIC,
-              AppRoles.SALES, AppRoles.ACCOUNTANT,
-              AppRoles.TEACHER,
-            ]}
-          >
-            <ProgramDetailPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC, ACCOUNTANT, TEACHER]}>
+            <P.LazyProgramDetailPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.CURRICULUM_PROGRAM_EDIT,
         element: (
-          <RoleGuard
-            allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC]}
-          >
-            <ProgramFormPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyProgramFormPage />
           </RoleGuard>
         ),
       },
-
-      // Module Lớp học
-      // Các route này được phân quyền dựa trên yêu cầu: academic, director, root xem được; teacher xem được nhưng không edit
       {
         path: RoutePaths.CLASSES,
         element: (
-          // Cho phép Teacher xem danh sách lớp học
-          <RoleGuard
-            allowedRoles={[
-              AppRoles.ROOT,
-              AppRoles.DIRECTOR,
-              AppRoles.ACADEMIC,
-              AppRoles.SALES, AppRoles.ACCOUNTANT,
-              AppRoles.TEACHER,
-            ]}
-          >
-            <ClassListPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyClassListPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.CLASS_NEW,
         element: (
-          // Chỉ các role quản lý vận hành (Root, Academic) mới được tạo lớp
-          <RoleGuard
-            allowedRoles={[AppRoles.ROOT, AppRoles.ACADEMIC]}
-          >
-            <ClassFormPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyClassFormPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.CLASS_DETAIL,
         element: (
-          // Teacher và các role quản lý đều có thể xem chi tiết lớp
-          <RoleGuard
-            allowedRoles={[
-              AppRoles.ROOT,
-              AppRoles.DIRECTOR,
-              AppRoles.ACADEMIC,
-              AppRoles.SALES, AppRoles.ACCOUNTANT,
-              AppRoles.TEACHER,
-            ]}
-          >
-            <ClassDetailPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyClassDetailPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.CLASS_EDIT,
         element: (
-          // Director read-only: chỉ Root/Academic được truy cập route chỉnh sửa này
-          <RoleGuard
-            allowedRoles={[AppRoles.ROOT, AppRoles.ACADEMIC]}
-          >
-            <ClassFormPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyClassFormPage />
           </RoleGuard>
         ),
       },
-
-      // Module Sessions
-      {
-        path: RoutePaths.SESSIONS,
-        element: <Navigate to={RoutePaths.CLASSES} replace />,
-      },
+      { path: RoutePaths.SESSIONS, element: <Navigate to={RoutePaths.CLASSES} replace /> },
       {
         path: RoutePaths.SESSIONS_LIST,
         element: (
-          <RoleGuard
-            allowedRoles={[
-              AppRoles.ROOT,
-              AppRoles.DIRECTOR,
-              AppRoles.ACADEMIC,
-              AppRoles.SALES, AppRoles.ACCOUNTANT,
-              AppRoles.TEACHER,
-            ]}
-          >
-            <SessionListPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazySessionListPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.SESSION_DETAIL,
         element: (
-          <RoleGuard
-            allowedRoles={[
-              AppRoles.DIRECTOR,
-              AppRoles.ACADEMIC,
-              AppRoles.TEACHER,
-            ]}
-          >
-            <SessionDetailPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC, TEACHER]}>
+            <P.LazySessionDetailPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.MY_SESSIONS,
         element: (
-          <RoleGuard allowedRoles={[AppRoles.TEACHER]}>
-            <MySessionsPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC, TEACHER]}>
+            <P.LazyMySessionsPage />
           </RoleGuard>
         ),
       },
-
-      // Module Feedback & Điểm số
       {
-        // Trang nhập nhận xét & điểm số theo buổi học:
-        // Teacher được xem+ghi (nếu đúng session của mình, kiểm tra nội bộ trong page),
-        // Academic/Director được xem (read-only, kiểm tra nội bộ trong page)
         path: RoutePaths.SESSION_FEEDBACK,
         element: (
-          <RoleGuard
-            allowedRoles={[
-              AppRoles.DIRECTOR,
-              AppRoles.ACADEMIC,
-              AppRoles.TEACHER,
-            ]}
-          >
-            <SessionFeedbackPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC, TEACHER]}>
+            <P.LazySessionFeedbackPage />
           </RoleGuard>
         ),
       },
       {
-        // Trang lịch sử điểm số theo học viên:
-        // Teacher không truy cập màn học viên; điểm số xem theo buổi học (Session Feedback)
         path: RoutePaths.STUDENT_SCORE_HISTORY,
         element: (
-          <RoleGuard
-            allowedRoles={[
-              AppRoles.DIRECTOR,
-              AppRoles.ACADEMIC,
-              AppRoles.SALES, AppRoles.ACCOUNTANT,
-            ]}
-          >
-            <StudentScoreHistoryPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyStudentScoreHistoryPage />
           </RoleGuard>
         ),
       },
-      
-      // Module Học thử (Trials)
       {
         path: RoutePaths.TRIALS,
         element: (
-          <RoleGuard
-            allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC, AppRoles.SALES]}
-          >
-            <TrialListPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyTrialListPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.TRIAL_CREATE,
         element: (
-          <RoleGuard
-            // Chỉ các role có quyền ghi (WRITE) mới được tạo lead
-            allowedRoles={[AppRoles.ROOT, AppRoles.SALES]}
-          >
-            <TrialFormPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyTrialFormPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.TRIAL_DETAIL,
         element: (
-          <RoleGuard
-            allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC, AppRoles.SALES]}
-          >
-            <TrialDetailPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyTrialDetailPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.TRIAL_EDIT,
         element: (
-          <RoleGuard
-            // Chỉ các role có quyền ghi (WRITE) mới được cập nhật lead
-            allowedRoles={[AppRoles.ROOT, AppRoles.SALES]}
-          >
-            <TrialFormPage />
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyTrialFormPage />
           </RoleGuard>
         ),
       },
-
-      // Module Tài chính
-      // Redirect parent paths để tránh 404 khi bookmark/gõ URL
-      {
-        path: RoutePaths.FINANCE_ROOT,
-        element: <Navigate to={RoutePaths.INVOICES} replace />,
-      },
-      {
-        path: RoutePaths.CURRICULUM_ROOT,
-        element: <Navigate to={RoutePaths.CURRICULUM_PROGRAMS} replace />,
-      },
-      {
-        path: RoutePaths.SYSTEM_ROOT,
-        element: <Navigate to={RoutePaths.NOTIFICATIONS} replace />,
-      },
+      { path: RoutePaths.FINANCE_ROOT, element: <Navigate to={RoutePaths.FINANCE_DASHBOARD} replace /> },
+      { path: RoutePaths.CURRICULUM_ROOT, element: <Navigate to={RoutePaths.CURRICULUM_PROGRAMS} replace /> },
+      { path: RoutePaths.SYSTEM_ROOT, element: <Navigate to={RoutePaths.NOTIFICATIONS} replace /> },
       {
         path: RoutePaths.FEE_PLANS,
         element: (
-          <RoleGuard allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACCOUNTANT, AppRoles.ACADEMIC]}>
-            <FeePlanListPage />
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT, ACADEMIC]}>
+            <P.LazyFeePlanListPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.INVOICES,
         element: (
-          <RoleGuard allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACCOUNTANT, AppRoles.ACADEMIC]}>
-            <InvoiceListPage />
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT, ACADEMIC]}>
+            <P.LazyInvoiceListPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.STUDENT_PAYMENT_STATUS,
         element: (
-          <RoleGuard allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACCOUNTANT, AppRoles.ACADEMIC]}>
-            <StudentPaymentStatusListPage />
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT]}>
+            <P.LazyPaymentStatusPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: RoutePaths.RECEIPTS,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT]}>
+            <P.LazyReceiptListPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: RoutePaths.RECEIPT_NEW,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT]}>
+            <P.LazyReceiptFormPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: RoutePaths.RECEIPT_DETAIL,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT]}>
+            <P.LazyReceiptDetailPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: RoutePaths.FINANCE_DASHBOARD,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT]}>
+            <P.LazyFinanceDashboardPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: RoutePaths.PAYROLL,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT]}>
+            <P.LazyPayrollListPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: RoutePaths.PAYROLL_NEW,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT]}>
+            <P.LazyPayrollFormPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: RoutePaths.PAYROLL_DETAIL,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT]}>
+            <P.LazyPayrollDetailPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: RoutePaths.REFUND_REQUESTS,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT]}>
+            <P.LazyRefundRequestsPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.INVOICE_DETAIL,
         element: (
-          <RoleGuard allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACCOUNTANT, AppRoles.ACADEMIC]}>
-            <InvoiceDetailPage />
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT, ACADEMIC]}>
+            <P.LazyInvoiceDetailPage />
           </RoleGuard>
         ),
       },
       {
         path: RoutePaths.STUDENT_FINANCE,
         element: (
-          <RoleGuard allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACCOUNTANT, AppRoles.ACADEMIC]}>
-            <StudentFinancePage />
+          <RoleGuard allowedRoles={[ADMIN, ACCOUNTANT, ACADEMIC]}>
+            <P.LazyStudentFinancePage />
           </RoleGuard>
         ),
       },
- 
-      // Module Hệ thống
       {
         path: RoutePaths.NOTIFICATIONS,
-        element: <NotificationsPage />,
+        element: <P.LazyNotificationsPage />,
       },
       {
         path: RoutePaths.AUDIT_LOGS,
         element: (
-          <RoleGuard allowedRoles={[AppRoles.ROOT, AppRoles.DIRECTOR]}>
-            <AuditLogPage />
+          <RoleGuard allowedRoles={[ADMIN]}>
+            <P.LazyAuditLogPage />
           </RoleGuard>
         ),
       },
       {
-        path: RoutePaths.USER_MANAGEMENT,
+        path: RoutePaths.DEMO_CONTROL_CENTER,
         element: (
-          <RoleGuard allowedRoles={[AppRoles.ROOT]}>
-            <UserManagementPage />
+          <RoleGuard allowedRoles={[ADMIN]}>
+            <P.LazyDemoControlCenterPage />
           </RoleGuard>
         ),
       },
-
-      {
-        path: RoutePaths.FORBIDDEN,
-        element: <ForbiddenPage />,
-      },
-      {
-        // Nhúng 404 cho mọi url rác phía sau protected route
-        path: "*",
-        element: <NotFoundPage />,
-      },
+      { path: '*', element: <P.LazyNotFoundPage /> },
     ],
-  },
-  {
-    // Backup 404 cho root top-level
-    path: "*",
-    element: <NotFoundPage />,
   },
 ]);

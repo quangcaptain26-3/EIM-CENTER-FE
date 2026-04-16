@@ -1,340 +1,504 @@
-import { useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Plus, Trash2 } from "lucide-react";
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { BookOpen, Check, GraduationCap, Plane, Star } from 'lucide-react';
+import { Button } from '@/shared/ui/button';
+import { FormInput } from '@/shared/ui/form/form-input';
+import { Input } from '@/shared/ui/input';
+import { useParsedPrograms, useParsedRooms } from '@/presentation/hooks/classes/use-classes';
+import { useCreateClass, useGenerateSessions } from '@/presentation/hooks/classes/use-class-mutations';
+import { useUsers } from '@/presentation/hooks/system/use-users';
+import { FALLBACK_PROGRAMS, SHIFT_OPTIONS } from '@/presentation/components/classes/class-form.constants';
+import { WEEKDAY_LABELS, WEEKDAY_OPTIONS } from '@/shared/constants/config';
+import { parseCreatedId } from '@/infrastructure/services/class-parse.util';
+import { RoutePaths } from '@/app/router/route-paths';
+import type { ProgramOption } from '@/shared/types/class.type';
+import type { ClassResponse } from '@/shared/types/api-contract';
+import { ROLES } from '@/shared/constants/roles';
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
+import { cn } from '@/shared/lib/cn';
+import { toast } from 'sonner';
+import { applyValidationErrorsFromForm, toastApiError } from '@/presentation/hooks/toast-api-error';
+import { inferProgramSlug, resolveProgramCode } from '@/presentation/components/classes/program-theme';
+import { formatDate } from '@/shared/lib/date';
+import { scheduleDays as formatSchedulePreview } from '@/shared/lib/date';
 
-import PageShell from "../../layouts/page-shell";
-import { useClass } from "../../hooks/classes/use-classes";
-import { usePrograms } from "../../hooks/curriculum/use-programs";
-import { useCreateClass, useUpdateClass } from "../../hooks/classes/use-class-mutations";
+const SCHEDULE_MIN_GAP = 2;
 
-import { mapValidationErrors } from "../../../infrastructure/http/http-error.mapper";
-import { FormInput } from "../../../shared/ui/form/form-input";
-import { FormSelect } from "../../../shared/ui/form/form-select";
-import { Loading } from "../../../shared/ui/feedback/loading";
-import { ErrorState } from "../../../shared/ui/feedback/error-state";
-import { RoutePaths } from "../../../app/router/route-paths";
-import { ClassStatus } from "../../../domain/classes/models/class.model";
-
-const scheduleRowSchema = z
-  .object({
-    weekday: z.number().int().min(1).max(7),
-    startTime: z.string().min(1, "Chọn giờ bắt đầu"),
-    endTime: z.string().min(1, "Chọn giờ kết thúc"),
+const scheduleDaysSchema = z
+  .array(z.number().int().min(2).max(7))
+  .superRefine((days, ctx) => {
+    if (days.length === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Chưa chọn ngày học' });
+      return;
+    }
+    if (days.length === 1) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Cần chọn thêm 1 ngày nữa' });
+      return;
+    }
+    if (days.length > 2) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Chỉ được chọn đúng 2 ngày' });
+      return;
+    }
+    const [a, b] = days;
+    if (a === b) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Không được chọn cùng 1 ngày' });
+      return;
+    }
+    const s = [...days].sort((x, y) => x - y);
+    if (s[1] - s[0] < SCHEDULE_MIN_GAP) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Hai ngày học phải cách nhau ít nhất 1 ngày' });
+    }
   })
-  .refine((data) => data.endTime > data.startTime, {
-    message: "Giờ kết thúc phải sau giờ bắt đầu",
-    path: ["endTime"],
+  .transform((days) => [...days].sort((a, b) => a - b));
+
+const formSchema = z.object({
+  programId: z.string().min(1, 'Chọn chương trình'),
+  roomId: z.string().min(1, 'Chọn phòng'),
+  shift: z.union([z.literal(1), z.literal(2)]),
+  scheduleDays: scheduleDaysSchema,
+  teacherId: z.string().min(1, 'Chọn giáo viên từ danh sách'),
+  startDate: z
+    .string()
+    .min(1, 'Chọn ngày khai giảng')
+    .refine(
+      (val) => {
+        const t = new Date(`${val}T12:00:00`);
+        return !Number.isNaN(t.getTime());
+      },
+      { message: 'Ngày không hợp lệ' },
+    )
+    .refine(
+      (val) => {
+        const t = new Date(`${val}T12:00:00`);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        t.setHours(0, 0, 0, 0);
+        return t >= today;
+      },
+      { message: 'Ngày khai giảng không được là ngày trong quá khứ' },
+    ),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+const PROGRAM_ICONS: Record<string, typeof BookOpen> = {
+  kindy: BookOpen,
+  starters: Star,
+  movers: GraduationCap,
+  flyers: Plane,
+};
+
+function ProgramIcon({ name }: { name: string }) {
+  const slug = inferProgramSlug(name);
+  const Icon = slug ? PROGRAM_ICONS[slug] ?? BookOpen : BookOpen;
+  return <Icon className="size-6 text-brand-400" strokeWidth={1.5} />;
+}
+
+/** Gợi ý realtime — khớp rule gap >= 2 */
+function scheduleInlineHint(days: number[]): { tone: 'muted' | 'warn' | 'err' | 'ok'; text: string } {
+  if (days.length === 0) return { tone: 'muted', text: 'Chưa chọn ngày học' };
+  if (days.length === 1) return { tone: 'warn', text: 'Cần chọn thêm 1 ngày nữa' };
+  const s = [...days].sort((a, b) => a - b);
+  if (s[1] - s[0] < SCHEDULE_MIN_GAP) {
+    return {
+      tone: 'err',
+      text: `${WEEKDAY_LABELS[s[0]]} và ${WEEKDAY_LABELS[s[1]]} liền nhau — không hợp lệ`,
+    };
+  }
+  return {
+    tone: 'ok',
+    text: `✓ Lịch học: ${formatSchedulePreview(s)}`,
+  };
+}
+
+export function ClassFormPage() {
+  const navigate = useNavigate();
+  const { programs: apiPrograms, isLoading: loadingPrograms } = useParsedPrograms();
+  const { rooms, isLoading: loadingRooms } = useParsedRooms();
+
+  const programs: ProgramOption[] = useMemo(
+    () => (apiPrograms.length ? apiPrograms : FALLBACK_PROGRAMS),
+    [apiPrograms],
+  );
+
+  const { users: teachers } = useUsers({
+    page: 1,
+    limit: 300,
+    role: ROLES.TEACHER,
+    isActive: true,
   });
 
-const WEEKDAY_OPTIONS = [
-  { value: "1", label: "Thứ 2" },
-  { value: "2", label: "Thứ 3" },
-  { value: "3", label: "Thứ 4" },
-  { value: "4", label: "Thứ 5" },
-  { value: "5", label: "Thứ 6" },
-  { value: "6", label: "Thứ 7" },
-  { value: "7", label: "Chủ nhật" },
-];
-
-const createClassFormSchema = z.object({
-  class_code: z.string().min(1, "Mã lớp học không được để trống"),
-  program_id: z.string().uuid("Vui lòng chọn chương trình học hợp lệ").min(1, "Vui lòng chọn chương trình học"),
-  capacity: z.number().int("Sĩ số phải là số nguyên").min(1, "Sĩ số tối thiểu là 1").max(12, "Sĩ số tối đa là 12"),
-  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày bắt đầu phải theo định dạng YYYY-MM-DD"),
-  schedule_note: z.string().optional(),
-  schedules: z.array(scheduleRowSchema).min(1, "Thêm ít nhất một buổi học trong tuần"),
-  autoGenerateSessions: z.boolean(),
-});
-
-const editClassFormSchema = z.object({
-  class_code: z.string().min(1, "Mã lớp học không được để trống"),
-  program_id: z.string().uuid("Vui lòng chọn chương trình học hợp lệ").min(1, "Vui lòng chọn chương trình học"),
-  capacity: z.number().int("Sĩ số phải là số nguyên").min(1, "Sĩ số tối thiểu là 1").max(12, "Sĩ số tối đa là 12"),
-  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ngày bắt đầu phải theo định dạng YYYY-MM-DD"),
-  schedule_note: z.string().optional(),
-});
-
-type CreateClassFormValues = z.infer<typeof createClassFormSchema>;
-type EditClassFormValues = z.infer<typeof editClassFormSchema>;
-
-export const ClassFormPage = () => {
-  const { classId } = useParams<{ classId: string }>();
-  const navigate = useNavigate();
-  const mode = classId ? "edit" : "create";
-
-  const { data: classData, isLoading: isLoadingClass, isError: isErrorClass, refetch } = useClass(mode === "edit" ? classId : undefined);
-  const { data: programs, isLoading: isLoadingPrograms } = usePrograms();
-
-  const { mutateAsync: createClass, isPending: isCreating } = useCreateClass();
-  const { mutateAsync: updateClass, isPending: isUpdating } = useUpdateClass(classId);
-
-  const schema = useMemo(
-    () => (mode === "create" ? createClassFormSchema : editClassFormSchema),
-    [mode],
-  );
+  const createClass = useCreateClass();
+  const generateSessions = useGenerateSessions();
+  const [submitting, setSubmitting] = useState(false);
+  const [roomSearch, setRoomSearch] = useState('');
+  const [teacherSearch, setTeacherSearch] = useState('');
+  const [genDialogOpen, setGenDialogOpen] = useState(false);
+  const [pendingClassId, setPendingClassId] = useState<string | null>(null);
+  const [pendingClassCode, setPendingClassCode] = useState<string>('');
+  const [pendingStartDate, setPendingStartDate] = useState<string>('');
 
   const {
     register,
     handleSubmit,
-    reset,
-    setError,
-    control,
     watch,
-    formState: { errors, isSubmitting },
-  } = useForm<CreateClassFormValues | EditClassFormValues>({
-    resolver: zodResolver(schema),
-    defaultValues:
-      mode === "create"
-        ? {
-            capacity: 12,
-            class_code: "",
-            program_id: "",
-            start_date: "",
-            schedule_note: "",
-            schedules: [
-              { weekday: 2, startTime: "18:00", endTime: "19:30" },
-              { weekday: 4, startTime: "18:00", endTime: "19:30" },
-            ],
-            autoGenerateSessions: true,
-          }
-        : {
-            capacity: 12,
-            class_code: "",
-            program_id: "",
-            start_date: "",
-            schedule_note: "",
-            schedules: [],
-          },
+    setValue,
+    setError,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      programId: '',
+      roomId: '',
+      shift: 1,
+      scheduleDays: [],
+      teacherId: '',
+      startDate: '',
+    },
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "schedules" as never,
-    shouldUnregister: true,
-  });
+  const pid = watch('programId');
+  const selectedProgram = programs.find((p) => p.id === pid);
+  const scheduleDaysWatch = watch('scheduleDays') ?? [];
 
-  useEffect(() => {
-    if (mode === "edit" && classData) {
-      reset({
-        class_code: classData.code,
-        program_id: classData.programId,
-        capacity: classData.capacity,
-        start_date: classData.startDate ? classData.startDate.split("T")[0] : "",
-        schedule_note: classData.room || "",
-      });
-    }
-  }, [mode, classData, reset]);
+  const filteredRooms = useMemo(() => {
+    const q = roomSearch.trim().toLowerCase();
+    if (!q) return rooms;
+    return rooms.filter(
+      (r) =>
+        r.name.toLowerCase().includes(q) ||
+        (r.code && r.code.toLowerCase().includes(q)) ||
+        (r.roomCode && r.roomCode.toLowerCase().includes(q)),
+    );
+  }, [rooms, roomSearch]);
 
-  const onSubmit = async (values: CreateClassFormValues | EditClassFormValues) => {
-    try {
-      if (mode === "create") {
-        const v = values as CreateClassFormValues;
-        const response = await createClass({
-          code: v.class_code,
-          name: v.class_code,
-          programId: v.program_id,
-          capacity: v.capacity,
-          startDate: v.start_date,
-          room: v.schedule_note,
-          status: ClassStatus.ACTIVE,
-          schedules: v.schedules.map((s) => ({
-            weekday: s.weekday,
-            startTime: s.startTime.length === 5 ? `${s.startTime}:00` : s.startTime,
-            endTime: s.endTime.length === 5 ? `${s.endTime}:00` : s.endTime,
-          })),
-          autoGenerateSessions: v.autoGenerateSessions,
-        });
-        const newClassId = response?.data?.id;
-        if (newClassId) {
-          navigate(RoutePaths.CLASS_DETAIL.replace(":classId", newClassId));
-        } else {
-          navigate(RoutePaths.CLASSES);
-        }
-      } else {
-        const v = values as EditClassFormValues;
-        await updateClass({
-          name: v.class_code,
-          capacity: v.capacity,
-          startDate: v.start_date,
-          room: v.schedule_note,
-        });
-        navigate(RoutePaths.CLASS_DETAIL.replace(":classId", classId as string));
-      }
-    } catch (error) {
-      mapValidationErrors(error, setError);
-      console.error(error);
+  const filteredTeachers = useMemo(() => {
+    const q = teacherSearch.trim().toLowerCase();
+    if (!q) return teachers;
+    return teachers.filter(
+      (t) =>
+        t.fullName.toLowerCase().includes(q) ||
+        t.userCode.toLowerCase().includes(q),
+    );
+  }, [teachers, teacherSearch]);
+
+  const scheduleHint = useMemo(() => scheduleInlineHint(scheduleDaysWatch), [scheduleDaysWatch]);
+
+  const toggleScheduleDay = (day: number) => {
+    const cur = scheduleDaysWatch;
+    if (cur.includes(day)) {
+      setValue(
+        'scheduleDays',
+        cur.filter((d) => d !== day),
+        { shouldValidate: true },
+      );
+    } else if (cur.length < 2) {
+      setValue('scheduleDays', [...cur, day], { shouldValidate: true });
     }
   };
 
-  if (mode === "edit" && isLoadingClass) return <Loading text="Đang tải dữ liệu lớp học..." />;
-  if (mode === "edit" && isErrorClass) return <div className="p-8"><ErrorState onRetry={() => refetch()} /></div>;
+  const runAfterCreate = async (classId: string, startDate: string, doGenerate: boolean) => {
+    setGenDialogOpen(false);
+    if (doGenerate && startDate) {
+      try {
+        const result = await generateSessions.mutateAsync({
+          id: classId,
+          body: { startDate },
+        });
+        toast.success(
+          `Đã sinh ${result.sessionsCreated} buổi học từ ${formatDate(result.firstDate)} đến ${formatDate(result.lastDate)}`,
+        );
+      } catch (e) {
+        toastApiError(e);
+      }
+    }
+    navigate(RoutePaths.CLASS_DETAIL.replace(':classId', classId));
+  };
 
-  const isPending = isCreating || isUpdating || isSubmitting;
-  const autoGen = mode === "create" ? watch("autoGenerateSessions" as never) : false;
+  const onSubmit = async (values: FormValues) => {
+    const program = programs.find((p) => p.id === values.programId);
+    const programCode = resolveProgramCode(program);
+    if (!programCode) {
+      toast.error('Không xác định được mã chương trình');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const payload: Record<string, unknown> = {
+        programCode,
+        roomId: values.roomId,
+        shift: values.shift,
+        scheduleDays: values.scheduleDays,
+        teacherId: values.teacherId,
+        startDate: values.startDate,
+      };
+      const res = (await createClass.mutateAsync(payload)) as ClassResponse;
+      const newId = parseCreatedId(res) ?? res.id;
+      const code = res.classCode ?? '';
+      if (newId) {
+        setPendingClassId(newId);
+        setPendingClassCode(code);
+        setPendingStartDate(values.startDate);
+        setGenDialogOpen(true);
+      } else {
+        navigate(RoutePaths.CLASSES);
+      }
+    } catch (e) {
+      if (!applyValidationErrorsFromForm(e, setError)) {
+        toastApiError(e);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <PageShell
-      title={mode === "create" ? "Tạo lớp học mới" : "Sửa thông tin lớp"}
-      subtitle={mode === "create" ? "Nhập thông tin để mở lớp mới" : `Đang chỉnh sửa lớp: ${classData?.code || ""}`}
-    >
-      <div className="max-w-2xl mx-auto pt-6">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormInput
-              label="Mã lớp"
-              placeholder="Ví dụ: ILTS-001"
-              required
-              {...register("class_code")}
-              error={errors.class_code?.message}
-            />
+    <div className="mx-auto max-w-6xl space-y-8 pb-10">
+      <div>
+        <Button type="button" variant="ghost" size="sm" onClick={() => navigate(RoutePaths.CLASSES)}>
+          ← Danh sách lớp
+        </Button>
+        <h1 className="mt-2 font-display text-xl font-semibold text-[var(--text-primary)]">Tạo lớp mới</h1>
+        <p className="mt-1 text-sm text-[var(--text-muted)]">Chọn chương trình, phòng, ca và lịch cố định.</p>
+      </div>
 
-            <FormSelect
-              label="Chương trình học"
-              required
-              {...register("program_id")}
-              error={errors.program_id?.message}
-              disabled={isLoadingPrograms}
-              placeholder="-- Chọn chương trình học --"
-              options={programs ? programs.map((p) => ({ label: p.name, value: p.id })) : []}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <FormInput
-              type="number"
-              label="Sĩ số (tối đa)"
-              required
-              {...register("capacity", { valueAsNumber: true })}
-              error={errors.capacity?.message}
-            />
-
-            <FormInput
-              type="date"
-              label="Ngày bắt đầu"
-              required
-              {...register("start_date")}
-              error={errors.start_date?.message}
-              className="md:col-span-2"
-            />
-          </div>
-
-          {mode === "create" && (
-            <div className="space-y-4 rounded-lg border border-indigo-100 bg-indigo-50/40 p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">Lịch học cố định (trong tuần)</h3>
-                <button
-                  type="button"
-                  onClick={() => append({ weekday: 2, startTime: "18:00", endTime: "19:30" })}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 hover:text-indigo-900"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Thêm buổi
-                </button>
+      <form onSubmit={handleSubmit(onSubmit)} className="grid gap-8 lg:grid-cols-2">
+        <div className="space-y-6">
+          <section>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Chương trình</h2>
+            {loadingPrograms ? (
+              <p className="text-sm text-[var(--text-muted)]">Đang tải…</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {programs.map((p) => {
+                  const selected = pid === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setValue('programId', p.id, { shouldValidate: true })}
+                      className={cn(
+                        'relative flex flex-col rounded-2xl border p-4 text-left transition-colors',
+                        selected
+                          ? 'border-brand-500 bg-brand-500/5 shadow-[0_0_0_1px_rgba(108,99,255,0.35)]'
+                          : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] hover:border-[var(--border-strong)]',
+                      )}
+                    >
+                      {selected ? (
+                        <span className="absolute right-3 top-3 flex size-6 items-center justify-center rounded-full bg-brand-500 text-white">
+                          <Check className="size-3.5" strokeWidth={2.5} />
+                        </span>
+                      ) : null}
+                      <ProgramIcon name={p.name} />
+                      <span className="mt-2 font-medium text-[var(--text-primary)]">{p.name}</span>
+                      {p.feePerSession != null ? (
+                        <span className="mt-1 text-xs text-[var(--text-muted)]">
+                          {p.feePerSession.toLocaleString('vi-VN')} ₫ / buổi
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
               </div>
-              <p className="text-xs text-gray-600">
-                Mỗi dòng là một buổi trong tuần (ví dụ Thứ 3 + Thứ 5 = 2 buổi/tuần). Hệ thống dùng để sinh ngày học.
-              </p>
-              {(errors as { schedules?: { message?: string } }).schedules?.message && (
-                <p className="text-sm text-red-600">{(errors as { schedules?: { message?: string } }).schedules?.message}</p>
-              )}
-              <div className="space-y-3">
-                {fields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="flex flex-wrap items-end gap-3 rounded-md border border-gray-200 bg-white p-3"
-                  >
-                    <div className="min-w-[140px] flex-1">
-                      <label className="mb-1 block text-xs font-medium text-gray-700">Thứ</label>
-                      <select
-                        className="w-full rounded-md border border-gray-300 px-2 py-2 text-sm"
-                        {...register(`schedules.${index}.weekday` as const, { valueAsNumber: true })}
-                      >
-                        {WEEKDAY_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="min-w-[100px]">
-                      <label className="mb-1 block text-xs font-medium text-gray-700">Bắt đầu</label>
-                      <input
-                        type="time"
-                        className="w-full rounded-md border border-gray-300 px-2 py-2 text-sm"
-                        {...register(`schedules.${index}.startTime` as const)}
-                      />
-                    </div>
-                    <div className="min-w-[100px]">
-                      <label className="mb-1 block text-xs font-medium text-gray-700">Kết thúc</label>
-                      <input
-                        type="time"
-                        className="w-full rounded-md border border-gray-300 px-2 py-2 text-sm"
-                        {...register(`schedules.${index}.endTime` as const)}
-                      />
-                    </div>
-                    {fields.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => remove(index)}
-                        className="rounded-md p-2 text-red-600 hover:bg-red-50"
-                        title="Xóa dòng"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+            )}
+            {errors.programId ? <p className="mt-2 text-sm text-red-400">{errors.programId.message}</p> : null}
+            <input type="hidden" {...register('programId')} />
+          </section>
 
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-800">
-                <input type="checkbox" className="rounded border-gray-300" {...register("autoGenerateSessions")} />
-                Tự động sinh buổi học (sessions) sau khi tạo lớp
-              </label>
-              {!autoGen && (
-                <p className="text-xs text-amber-700">
-                  Bạn có thể sinh buổi học sau từ trang chi tiết lớp (nút &quot;Sinh buổi học&quot;).
-                </p>
-              )}
+          <section>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Phòng học</h2>
+            <Input
+              placeholder="Tìm mã phòng, tên phòng…"
+              value={roomSearch}
+              onChange={(e) => setRoomSearch(e.target.value)}
+              className="mb-3"
+            />
+            {loadingRooms ? (
+              <p className="text-sm text-[var(--text-muted)]">Đang tải phòng…</p>
+            ) : (
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded-xl border border-[var(--border-subtle)] p-2">
+                {filteredRooms.map((r) => {
+                  const label = [r.roomCode ?? r.code, r.name, r.capacity != null ? `${r.capacity} chỗ` : null]
+                    .filter(Boolean)
+                    .join(' · ');
+                  const selected = watch('roomId') === r.id;
+                  return (
+                    <label
+                      key={r.id}
+                      className={cn(
+                        'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm',
+                        selected ? 'border-brand-500/50 bg-brand-500/10' : 'border-transparent hover:bg-[var(--bg-elevated)]',
+                      )}
+                    >
+                      <input type="radio" value={r.id} className="text-brand-500" {...register('roomId')} />
+                      <span className="text-[var(--text-primary)]">{label}</span>
+                    </label>
+                  );
+                })}
+                {filteredRooms.length === 0 ? (
+                  <p className="py-4 text-center text-sm text-[var(--text-muted)]">Không có phòng phù hợp.</p>
+                ) : null}
+              </div>
+            )}
+            {errors.roomId ? <p className="mt-2 text-sm text-red-400">{errors.roomId.message}</p> : null}
+          </section>
+        </div>
+
+        <div className="space-y-6">
+          {selectedProgram?.feePerSession != null ? (
+            <div className="rounded-2xl border border-brand-500/20 bg-brand-500/5 px-4 py-3 text-sm text-[var(--text-secondary)]">
+              Học phí gợi ý:{' '}
+              <strong className="text-brand-200">
+                {selectedProgram.feePerSession.toLocaleString('vi-VN')} ₫
+              </strong>{' '}
+              / buổi
             </div>
-          )}
+          ) : null}
+
+          <section>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Ca học</h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {SHIFT_OPTIONS.map((s) => {
+                const sel = watch('shift') === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setValue('shift', s.value, { shouldValidate: true })}
+                    className={cn(
+                      'rounded-2xl border px-4 py-4 text-left text-sm transition-colors',
+                      sel ? 'border-brand-500 bg-brand-500/10' : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] hover:border-[var(--border-strong)]',
+                    )}
+                  >
+                    <span className="font-medium leading-snug text-[var(--text-primary)]">{s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {errors.shift ? <p className="mt-2 text-sm text-red-400">{errors.shift.message}</p> : null}
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Lịch trong tuần</h2>
+            <p className="mb-2 text-xs text-[var(--text-muted)]">Chọn đúng 2 ngày (Thứ 2–Thứ 7), không được học hai ngày liền nhau.</p>
+            <div className="flex flex-wrap gap-2">
+              {WEEKDAY_OPTIONS.map(({ value, label }) => {
+                const selected = scheduleDaysWatch.includes(value);
+                const disabled = scheduleDaysWatch.length >= 2 && !selected;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => toggleScheduleDay(value)}
+                    className={cn(
+                      'rounded-full border px-3 py-1.5 text-sm transition-colors',
+                      selected && 'border-brand-500 bg-brand-500/15 text-brand-200',
+                      !selected && !disabled && 'border-[var(--border-default)] text-[var(--text-secondary)] hover:border-[var(--border-strong)]',
+                      disabled && !selected && 'cursor-not-allowed border-[var(--border-subtle)] text-[var(--text-muted)] opacity-50',
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p
+              className={cn(
+                'mt-2 text-sm',
+                scheduleHint.tone === 'muted' && 'text-[var(--text-muted)]',
+                scheduleHint.tone === 'warn' && 'text-amber-400',
+                scheduleHint.tone === 'err' && 'text-red-400',
+                scheduleHint.tone === 'ok' && 'text-emerald-400',
+              )}
+            >
+              {scheduleHint.text}
+            </p>
+            {errors.scheduleDays ? (
+              <p className="mt-1 text-sm text-red-400">{errors.scheduleDays.message as string}</p>
+            ) : null}
+          </section>
 
           <FormInput
-            label="Ghi chú phòng / lịch (tuỳ chọn)"
-            placeholder="Ví dụ: Phòng A — Tue/Thu"
-            {...register("schedule_note")}
-            error={errors.schedule_note?.message}
+            label="Ngày khai giảng"
+            type="date"
+            {...register('startDate')}
+            error={errors.startDate?.message}
           />
 
-          <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              disabled={isPending}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="px-6 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition flex items-center gap-2"
-            >
-              {isPending && (
-                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              )}
-              {mode === "create" ? "Tạo lớp học" : "Lưu thay đổi"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </PageShell>
-  );
-};
+          <section>
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Giáo viên phụ trách</h2>
+            <Input
+              placeholder="Tìm theo tên, mã GV…"
+              value={teacherSearch}
+              onChange={(e) => setTeacherSearch(e.target.value)}
+              className="mb-3"
+            />
+            <div className="max-h-52 space-y-2 overflow-y-auto rounded-xl border border-[var(--border-subtle)] p-2">
+              {filteredTeachers.map((t) => {
+                const sel = watch('teacherId') === t.id;
+                return (
+                  <label
+                    key={t.id}
+                    className={cn(
+                      'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm',
+                      sel ? 'border-brand-500/50 bg-brand-500/10' : 'border-transparent hover:bg-[var(--bg-elevated)]',
+                    )}
+                  >
+                    <input type="radio" value={t.id} {...register('teacherId')} />
+                    <span className="text-[var(--text-primary)]">
+                      {t.fullName}{' '}
+                      <span className="font-mono text-[var(--text-muted)]">({t.userCode})</span>
+                    </span>
+                  </label>
+                );
+              })}
+              {filteredTeachers.length === 0 ? (
+                <p className="py-4 text-center text-sm text-[var(--text-muted)]">Không có giáo viên.</p>
+              ) : null}
+            </div>
+            {errors.teacherId ? <p className="mt-2 text-sm text-red-400">{errors.teacherId.message}</p> : null}
+          </section>
 
-export default ClassFormPage;
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="ghost" onClick={() => navigate(RoutePaths.CLASSES)}>
+              Hủy
+            </Button>
+            <Button type="submit" isLoading={submitting}>
+              Tạo lớp
+            </Button>
+          </div>
+        </div>
+      </form>
+
+      <ConfirmDialog
+        open={genDialogOpen}
+        onClose={() => {
+          const id = pendingClassId;
+          setGenDialogOpen(false);
+          setPendingClassId(null);
+          if (id) void runAfterCreate(id, pendingStartDate, false);
+        }}
+        variant="warning"
+        title={pendingClassCode ? `Lớp ${pendingClassCode} đã tạo thành công!` : 'Đã tạo lớp thành công!'}
+        message={
+          'Bạn có muốn sinh lịch học ngay không?\n(Hệ thống sẽ tự sinh 24 buổi, bỏ qua ngày lễ)'
+        }
+        confirmLabel="Sinh lịch học →"
+        cancelLabel="Để sau"
+        loading={generateSessions.isPending}
+        onConfirm={async () => {
+          if (!pendingClassId) return;
+          const id = pendingClassId;
+          const d = pendingStartDate;
+          setPendingClassId(null);
+          await runAfterCreate(id, d, true);
+        }}
+      />
+    </div>
+  );
+}

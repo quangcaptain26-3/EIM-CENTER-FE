@@ -1,31 +1,49 @@
-/**
- * use-audit-logs.ts
- * Hook truy vấn danh sách nhật ký kiểm toán hệ thống.
- */
+import { useQuery } from '@tanstack/react-query';
+import { getAuditLogs } from '@/infrastructure/services/system.api';
+import { QUERY_KEYS } from '@/infrastructure/query/query-keys';
+import { parseAuditLogListResponse } from '@/infrastructure/services/audit-log-parse.util';
 
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { queryKeys } from '@/infrastructure/query/query-keys';
-import { systemApi } from '@/infrastructure/services/system.api';
-import { mapToAuditLogModel } from '@/application/system/mappers/system.mapper';
-import type { ListAuditLogsParams } from '@/application/system/dto/system.dto';
-
-/**
- * Hook lấy danh sách nhật ký kiểm toán với bộ lọc và phân trang.
- * @param params Bộ lọc: entityType, action, actorId, dateRange...
- */
-export function useAuditLogs(params: ListAuditLogsParams) {
-  return useQuery({
-    queryKey: queryKeys.system.auditLogs(params),
-    queryFn: async () => {
-      const response = await systemApi.listAuditLogs(params);
-      // Ánh xạ dữ liệu thô sang model domain
-      return {
-        ...response.data,
-        items: (response.data as any).items.map(mapToAuditLogModel),
-      };
-    },
-    // Giữ lại dữ liệu trang cũ trong khi tải trang mới để tránh flicker UI (Pagination)
-    placeholderData: keepPreviousData,
-    staleTime: 60000, // Audit logs thường ít thay đổi liên tục, có thể để cache lâu hơn
-  });
+export interface AuditLogsParams {
+  page: number;
+  limit: number;
+  actor?: string;
+  action?: string;
+  entityType?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
+
+const STALE_AUDIT_MS = 30_000;
+
+export function useAuditLogs(params: AuditLogsParams) {
+  const apiParams: Record<string, unknown> = {
+    page: params.page,
+    limit: params.limit,
+  };
+  if (params.actor?.trim()) apiParams.actor = params.actor.trim();
+  if (params.action?.trim()) apiParams.action = params.action.trim();
+  if (params.entityType?.trim()) apiParams.entityType = params.entityType.trim();
+  if (params.dateFrom) apiParams.dateFrom = params.dateFrom;
+  if (params.dateTo) apiParams.dateTo = params.dateTo;
+
+  const q = useQuery({
+    queryKey: QUERY_KEYS.AUDIT.list(apiParams),
+    queryFn: () => getAuditLogs(apiParams),
+    staleTime: STALE_AUDIT_MS,
+  });
+
+  const parsed = q.data ? parseAuditLogListResponse(q.data) : { items: [], total: 0, page: 1, limit: 20 };
+
+  return {
+    rows: parsed.items,
+    total: parsed.total,
+    page: parsed.page,
+    limit: parsed.limit,
+    isLoading: q.isLoading,
+    error: q.error,
+    refetch: q.refetch,
+  };
+}
+
+/** @deprecated dùng useAuditLogs */
+export const useAuditLogsList = useAuditLogs;

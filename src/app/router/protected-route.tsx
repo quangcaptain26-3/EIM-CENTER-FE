@@ -1,40 +1,52 @@
-// protected-route.tsx
-// Component bảo vệ route – chỉ cho phép truy cập khi đã đăng nhập.
-// Khi chưa initialized (app đang khởi động) → không redirect ngay để tránh nhầm.
-
-import { Navigate } from "react-router-dom";
-import { RoutePaths } from "@/app/router/route-paths";
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import type { RootState } from '../store/root-reducer';
+import type { RoleCode } from '../../shared/types/auth.type';
+import { RoutePaths } from './route-paths';
 
 interface ProtectedRouteProps {
-  /** Trạng thái xác thực (lấy từ Redux store) */
-  isAuthenticated: boolean;
-  /** App đã kiểm tra token lần đầu xong chưa (từ useInitAuth) */
-  initialized?: boolean;
-  /** Trang redirect khi chưa đăng nhập (mặc định là /login) */
-  redirectTo?: string;
-  children: ReactNode;
+  requiredRoles?: RoleCode[];
+  /** When set, overrides Redux `isAuthenticated` (e.g. layout wrapper). */
+  isAuthenticated?: boolean;
+  /** Khi false — chưa hydrate auth (GET /auth/me). */
+  isInitialized?: boolean;
+  children?: ReactNode;
 }
 
-const ProtectedRoute = ({
-  isAuthenticated,
-  initialized = true,
-  redirectTo = RoutePaths.LOGIN,
+export function ProtectedRoute({
+  requiredRoles,
+  isAuthenticated: isAuthenticatedProp,
+  isInitialized = true,
   children,
-}: ProtectedRouteProps) => {
-  // Chưa initialized → render null để tránh redirect nhầm trong lúc đang kiểm tra token
-  // (AppBootstrap đã render Loading, nên null ở đây không gây màn hình trắng)
-  if (!initialized) {
-    return null;
+}: ProtectedRouteProps) {
+  const { isAuthenticated: reduxAuthenticated, user } = useSelector((state: RootState) => state.auth);
+
+  const isAuthenticated = isAuthenticatedProp ?? reduxAuthenticated;
+
+  if (!isInitialized) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg text-sm text-gray-600">
+        Đang tải…
+      </div>
+    );
   }
 
-  // Đã khởi tạo xong nhưng chưa đăng nhập → redirect về login
-  if (!isAuthenticated) {
-    return <Navigate to={redirectTo} replace />;
+  if (!isAuthenticated || !user) {
+    return <Navigate to={RoutePaths.LOGIN} replace />;
   }
 
-  // Đã đăng nhập → render nội dung trang
-  return <>{children}</>;
-};
+  if (requiredRoles && requiredRoles.length > 0) {
+    if (!requiredRoles.includes(user.role)) {
+      return <Navigate to={RoutePaths.FORBIDDEN} replace />;
+    }
+  }
+
+  if (children !== undefined && children !== null) {
+    return <>{children}</>;
+  }
+
+  return <Outlet />;
+}
 
 export default ProtectedRoute;

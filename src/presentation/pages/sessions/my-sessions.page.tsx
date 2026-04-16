@@ -1,185 +1,391 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Calendar, ChevronDown } from "lucide-react";
-import { useQueries } from "@tanstack/react-query";
-import PageShell from "../../layouts/page-shell";
-import { useAuth } from "../../hooks/auth/use-auth";
-import { useMySessionsAsTeacher } from "../../hooks/sessions/use-sessions";
-import { SessionTimelineList } from "../../components/sessions/session-timeline-list";
-import { RoutePaths } from "../../../app/router/route-paths";
-import { Loading } from "../../../shared/ui/feedback/loading";
-import { EmptyState } from "../../../shared/ui/feedback/empty";
-import { ErrorState } from "../../../shared/ui/feedback/error-state";
-import { queryKeys } from "../../../infrastructure/query/query-keys";
-import { classesApi } from "../../../infrastructure/services/classes.api";
-import { mapClassDetailDtoToModel } from "../../../application/classes/mappers/class.mapper";
-import type { SessionModel } from "../../../domain/sessions/models/session.model";
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Button } from '@/shared/ui/button';
+import { DataTable } from '@/shared/ui/data-table';
+import { useMySessions } from '@/presentation/hooks/sessions/use-sessions';
+import { StatusBadge } from '@/presentation/components/common/status-badge';
+import { RoutePaths } from '@/app/router/route-paths';
+import { formatDate, isTodayUtc7, todayYmdUtc7 } from '@/shared/lib/date';
+import { SESSION_STATUS } from '@/shared/constants/statuses';
+import type { MySessionRow } from '@/shared/types/session.type';
+import { cn } from '@/shared/lib/cn';
+import { Tooltip } from '@/shared/ui/tooltip';
+import { attendanceDayBlockedTooltip } from '@/presentation/lib/attendance-access';
 
-const ALL_CLASSES = "__all__";
+/** Tuần bắt đầu Thứ 2 (locale VN) */
+function startOfWeekMonday(ref: dayjs.Dayjs): dayjs.Dayjs {
+  const d = ref.day();
+  const offset = d === 0 ? -6 : 1 - d;
+  return ref.add(offset, 'day').startOf('day');
+}
 
-/**
- * Trang "Buổi học của tôi" dành riêng cho giáo viên.
- * Hiển thị danh sách các buổi học mà giáo viên được phân công giảng dạy chính hoặc dạy thay.
- * Luồng: Chọn lớp → Xem buổi học → Nhập nhận xét (nút trực tiếp).
- */
-export const MySessionsPage = () => {
+const WEEKDAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] as const;
+
+function pickSummary(s: Record<string, number> | undefined, sessions: MySessionRow[]) {
+  if (s && Object.keys(s).length > 0) {
+    return {
+      total: s.total ?? s.totalSessions ?? s.total_sessions ?? 0,
+      taught: s.taught ?? s.completed ?? s.completedSessions ?? s.da_day ?? 0,
+      upcoming: s.upcoming ?? s.upcomingSessions ?? s.sap_day ?? 0,
+      cover: s.cover ?? s.coverSessions ?? s.cover_count ?? 0,
+    };
+  }
+  const taught = sessions.filter((x) => x.status === SESSION_STATUS.completed).length;
+  const todayVn = todayYmdUtc7();
+  const upcoming = sessions.filter((x) => {
+    const d = x.scheduledDate.slice(0, 10);
+    return x.status === SESSION_STATUS.pending && d >= todayVn;
+  }).length;
+  const cover = sessions.filter((x) => x.roleType === 'cover').length;
+  return {
+    total: sessions.length,
+    taught,
+    upcoming,
+    cover,
+  };
+}
+
+export default function MySessionsPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [selectedClassId, setSelectedClassId] = useState<string>(ALL_CLASSES);
+  const [month, setMonth] = useState(() => todayYmdUtc7().slice(0, 7));
+  const [view, setView] = useState<'week' | 'month' | 'list'>('list');
 
-  // Gọi hook lấy danh sách buổi học của teacher hiện tại
-  const { data: sessions, isLoading, isError, refetch } = useMySessionsAsTeacher(user?.id);
+  const { sessions, summary, isLoading, refetch } = useMySessions({ monthKey: month });
 
-  // Group danh sách session theo classId, đồng thời gán tên GV khi API chưa trả
-  // (Trang "Buổi học của tôi" → tất cả session đều do user hiện tại phụ trách)
-  const groupedSessions = useMemo(() => {
-    if (!sessions) return {};
-    const teacherDisplayName = user?.fullName || "Bạn";
+  const stats = useMemo(() => pickSummary(summary, sessions), [summary, sessions]);
 
-    return sessions.reduce<Record<string, SessionModel[]>>((acc, session) => {
-      if (!acc[session.classId]) {
-        acc[session.classId] = [];
-      }
-      acc[session.classId].push({
-        ...session,
-        teacherEffectiveName: session.teacherEffectiveName || teacherDisplayName,
+  const sortedSessions = useMemo(
+    () => [...sessions].sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate)),
+    [sessions],
+  );
+
+  /** Tuần hiển thị: tháng hiện tại → tuần chứa hôm nay; tháng khác → tuần chứa ngày 1 */
+  const weekStart = useMemo(() => {
+    const selected = dayjs(`${month}-01`);
+    const now = dayjs(todayYmdUtc7());
+    const anchor = selected.isSame(now, 'month') ? now : selected;
+    return startOfWeekMonday(anchor);
+  }, [month]);
+
+  const weekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => weekStart.add(i, 'day')),
+    [weekStart],
+  );
+
+  const sessionsByDate = useMemo(() => {
+    const map = new Map<string, MySessionRow[]>();
+    for (const s of sessions) {
+      const d = s.scheduledDate.slice(0, 10);
+      if (!map.has(d)) map.set(d, []);
+      map.get(d)!.push(s);
+    }
+    return map;
+  }, [sessions]);
+
+  const monthGrid = useMemo(() => {
+    const start = dayjs(`${month}-01`);
+    const end = start.endOf('month');
+    const firstDow = start.day();
+    const padMon = firstDow === 0 ? 6 : firstDow - 1;
+    const days: { date: string; items: MySessionRow[] }[] = [];
+    let cur = start;
+    while (cur.isBefore(end) || cur.isSame(end, 'day')) {
+      const key = cur.format('YYYY-MM-DD');
+      days.push({
+        date: key,
+        items: sessions.filter((s) => s.scheduledDate.startsWith(key)),
       });
-      return acc;
-    }, {});
-  }, [sessions, user?.fullName]);
+      cur = cur.add(1, 'day');
+    }
+    return { padMon, days };
+  }, [month, sessions]);
 
-  const classIds = useMemo(() => Object.keys(groupedSessions), [groupedSessions]);
-
-  // Lấy tên lớp để hiển thị trong dropdown (fetch từng lớp)
-  const classQueries = useQueries({
-    queries: classIds.map((id) => ({
-      queryKey: queryKeys.classes.detail(id),
-      queryFn: async () => {
-        const res = await classesApi.getClass(id);
-        return mapClassDetailDtoToModel(res.data);
+  const listColumns: ColumnDef<MySessionRow>[] = useMemo(
+    () => [
+      {
+        id: 'date',
+        header: 'Ngày',
+        accessorFn: (row) => row.scheduledDate,
+        cell: ({ row }) => {
+          const d = row.original.scheduledDate.slice(0, 10);
+          return (
+            <div className="flex flex-col">
+              <span className="text-[var(--text-primary)]">{formatDate(d)}</span>
+              {isTodayUtc7(d) ? (
+                <span className="text-[10px] font-medium text-brand-400">Hôm nay</span>
+              ) : null}
+            </div>
+          );
+        },
       },
-      enabled: classIds.length > 0,
-    })),
-  });
-
-  const classMap = useMemo(() => {
-    const m: Record<string, { name: string; code: string }> = {};
-    classQueries.forEach((q, i) => {
-      if (q.data && classIds[i]) {
-        m[classIds[i]] = { name: q.data.name, code: q.data.code };
-      }
-    });
-    return m;
-  }, [classQueries, classIds]);
-
-  // Các lớp + session để hiển thị (lọc theo dropdown)
-  const displayEntries = useMemo(() => {
-    const entries = Object.entries(groupedSessions);
-    if (selectedClassId === ALL_CLASSES) return entries;
-    const cls = groupedSessions[selectedClassId];
-    if (!cls) return [];
-    return [[selectedClassId, cls] as const];
-  }, [groupedSessions, selectedClassId]);
-
-  if (isLoading) {
-    return (
-      <PageShell title="Buổi học của tôi">
-        <Loading text="Đang tải lịch dạy của bạn..." className="py-20" />
-      </PageShell>
-    );
-  }
-
-  if (isError) {
-    return (
-      <PageShell title="Buổi học của tôi">
-        <ErrorState 
-          title="Không thể tải lịch dạy" 
-          message="Đã có lỗi xảy ra khi lấy dữ liệu các buổi học của bạn."
-          onRetry={() => refetch()}
-        />
-      </PageShell>
-    );
-  }
-
-  const hasSessions = sessions && sessions.length > 0;
+      {
+        id: 'class',
+        header: 'Lớp',
+        accessorFn: (row) => row.classCode ?? row.className ?? '',
+        cell: ({ row }) => {
+          const s = row.original;
+          const cover =
+            s.roleType === 'main' &&
+            s.status !== SESSION_STATUS.cancelled &&
+            s.coverTeacherName
+              ? s.coverTeacherName
+              : null;
+          return (
+            <div className="min-w-0">
+              <span className="font-medium text-[var(--text-primary)]">{s.classCode ?? s.className ?? '—'}</span>
+              {cover ? (
+                <p className="mt-0.5 text-xs text-amber-200/95">
+                  Cover: <span className="font-medium">{cover}</span>
+                </p>
+              ) : null}
+            </div>
+          );
+        },
+      },
+      {
+        id: 'shift',
+        header: 'Ca (giờ)',
+        cell: ({ row }) => <span className="text-[var(--text-secondary)]">{row.original.shiftLabel ?? '—'}</span>,
+      },
+      {
+        id: 'role',
+        header: 'Loại',
+        cell: ({ row }) => (
+          <span
+            className={cn(
+              'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+              row.original.roleType === 'cover'
+                ? 'bg-amber-500/15 text-amber-300'
+                : 'bg-blue-500/15 text-blue-300',
+            )}
+          >
+            {row.original.roleType === 'cover' ? 'Cover' : 'Chính'}
+          </span>
+        ),
+      },
+      {
+        id: 'status',
+        header: 'Trạng thái',
+        cell: ({ row }) => <StatusBadge domain="session" status={row.original.status} />,
+      },
+      {
+        id: 'action',
+        header: '',
+        cell: ({ row }) => {
+          const s = row.original;
+          const canAttendance =
+            isTodayUtc7(s.scheduledDate) && s.status === SESSION_STATUS.pending;
+          const dayBlocked = s.status === SESSION_STATUS.pending && !isTodayUtc7(s.scheduledDate);
+          return (
+            <div className="flex flex-wrap justify-end gap-2">
+              {canAttendance ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => navigate(RoutePaths.SESSION_DETAIL.replace(':sessionId', s.id))}
+                >
+                  Điểm danh
+                </Button>
+              ) : dayBlocked ? (
+                <Tooltip content={attendanceDayBlockedTooltip(s.scheduledDate)}>
+                  <span className="inline-flex">
+                    <Button type="button" size="sm" disabled>
+                      Điểm danh
+                    </Button>
+                  </span>
+                </Tooltip>
+              ) : null}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => navigate(RoutePaths.SESSION_DETAIL.replace(':sessionId', s.id))}
+              >
+                Chi tiết
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    [navigate],
+  );
 
   return (
-    <PageShell
-      title="Buổi học của tôi"
-      subtitle="Danh sách các buổi học bạn được phân công đứng lớp. Chọn lớp để xem buổi học và nhập nhận xét."
-    >
-      <div className="flex flex-col gap-6 mt-4">
-        {!hasSessions ? (
-          <EmptyState 
-            title="Chưa có lịch dạy" 
-            description="Bạn chưa được phân công buổi học nào trong hệ thống."
-            className="py-20 bg-white border border-gray-100 rounded-xl shadow-sm"
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-lg font-semibold text-[var(--text-primary)]">Lịch dạy của tôi</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="month"
+            className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1.5 text-sm text-[var(--text-primary)] shadow-sm"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
           />
-        ) : (
-          <>
-            {/* Chọn lớp trước, sau đó hiện các buổi học của lớp đó */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <label htmlFor="class-select" className="block text-sm font-medium text-gray-700 mb-2">
-                Chọn lớp
-              </label>
-              <div className="relative">
-                <select
-                  id="class-select"
-                  value={selectedClassId}
-                  onChange={(e) => setSelectedClassId(e.target.value)}
-                  className="w-full max-w-md appearance-none pl-4 pr-10 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value={ALL_CLASSES}>Tất cả các lớp</option>
-                  {classIds.map((id) => {
-                    const info = classMap[id];
-                    const label = info ? `${info.name} (${info.code})` : `Lớp ${id.slice(0, 8)}...`;
-                    return (
-                      <option key={id} value={id}>
-                        {label}
-                      </option>
-                    );
-                  })}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-              </div>
-            </div>
-
-            <div className="space-y-8">
-              {displayEntries.map(([classId, classSessions]) => {
-                const classInfo = classMap[classId];
-                const classLabel = classInfo ? `${classInfo.name} (${classInfo.code})` : `Mã lớp: ${classId.slice(0, 8)}...`;
-                return (
-                  <div key={classId} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-                      <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-indigo-500" />
-                        {classLabel}
-                      </h3>
-                      <span className="text-sm font-medium text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
-                        {classSessions.length} buổi
-                      </span>
-                    </div>
-                    <div className="p-4">
-                      <SessionTimelineList
-                        sessions={classSessions}
-                        onSelectSession={(sessionId) => 
-                          navigate(RoutePaths.SESSION_DETAIL.replace(":sessionId", sessionId))
-                        }
-                        onFeedbackClick={(sessionId) =>
-                          navigate(RoutePaths.SESSION_FEEDBACK.replace(":sessionId", sessionId))
-                        }
-                        className="shadow-none border-none"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
+          <div className="flex flex-wrap gap-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-0.5">
+            {(
+              [
+                ['week', 'Tuần này'],
+                ['month', 'Tháng này'],
+                ['list', 'Danh sách'],
+              ] as const
+            ).map(([k, label]) => (
+              <Button
+                key={k}
+                type="button"
+                variant={view === k ? 'primary' : 'ghost'}
+                size="sm"
+                className="rounded-md"
+                onClick={() => setView(k)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          <Button type="button" variant="ghost" size="sm" onClick={() => void refetch()}>
+            Làm mới
+          </Button>
+        </div>
       </div>
-    </PageShell>
-  );
-};
 
-export default MySessionsPage;
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2">
+          <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Tổng buổi</p>
+          <p className="text-lg font-semibold text-[var(--text-primary)]">{stats.total}</p>
+        </div>
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2">
+          <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Đã dạy</p>
+          <p className="text-lg font-semibold text-emerald-400">{stats.taught}</p>
+        </div>
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2">
+          <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Sắp dạy</p>
+          <p className="text-lg font-semibold text-sky-400">{stats.upcoming}</p>
+        </div>
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-3 py-2">
+          <p className="text-[11px] uppercase tracking-wide text-[var(--text-muted)]">Buổi cover</p>
+          <p className="text-lg font-semibold text-amber-400">{stats.cover}</p>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-[var(--text-muted)]">Đang tải…</p>
+      ) : view === 'list' ? (
+        <DataTable
+          columns={listColumns}
+          data={sortedSessions}
+          total={sortedSessions.length}
+          page={1}
+          pageSize={Math.max(sortedSessions.length, 1)}
+          onPageChange={() => {}}
+          emptyMessage="Không có buổi dạy trong tháng."
+          getRowId={(r) => r.id}
+        />
+      ) : view === 'month' ? (
+        <div className="overflow-x-auto">
+          <div className="inline-block min-w-full">
+            <div className="grid grid-cols-7 gap-1 text-center text-xs sm:text-sm">
+              {WEEKDAY_LABELS.map((d) => (
+                <div key={d} className="py-1 font-semibold text-[var(--text-muted)]">
+                  {d}
+                </div>
+              ))}
+              {Array.from({ length: monthGrid.padMon }, (_, i) => (
+                <div
+                  key={`pad-${i}`}
+                  className="min-h-20 rounded-lg border border-transparent bg-[var(--bg-base)]"
+                />
+              ))}
+              {monthGrid.days.map(({ date, items }) => (
+                <div
+                  key={date}
+                  className={cn(
+                    'min-h-20 rounded-lg border p-1.5 text-left transition-colors',
+                    isTodayUtc7(date)
+                      ? 'border-brand-500/40 bg-brand-500/5'
+                      : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]',
+                  )}
+                >
+                  <div className="text-xs font-medium text-[var(--text-secondary)]">{dayjs(date).date()}</div>
+                  <div className="mt-1 flex flex-wrap gap-0.5">
+                    {items.slice(0, 4).map((s) => (
+                      <span
+                        key={s.id}
+                        title={s.classCode ?? s.className}
+                        className={cn(
+                          'size-1.5 rounded-full',
+                          s.roleType === 'cover' ? 'bg-amber-400' : 'bg-blue-400',
+                        )}
+                      />
+                    ))}
+                    {items.length > 4 ? (
+                      <span className="text-[9px] text-[var(--text-muted)]">+{items.length - 4}</span>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <div className="grid min-w-[720px] grid-cols-7 gap-2">
+            {weekDays.map((d, colIdx) => {
+              const key = d.format('YYYY-MM-DD');
+              const items = sessionsByDate.get(key) ?? [];
+              const inMonth = d.month() === dayjs(`${month}-01`).month();
+              return (
+                <div
+                  key={key}
+                  className={cn(
+                    'flex min-h-48 flex-col rounded-xl border p-2',
+                    isTodayUtc7(key)
+                      ? 'border-brand-500/35 bg-brand-500/6'
+                      : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)]',
+                    !inMonth ? 'opacity-50' : '',
+                  )}
+                >
+                  <div className="mb-2 border-b border-[var(--border-subtle)] pb-1 text-center">
+                    <div className="text-[10px] font-medium uppercase text-[var(--text-muted)]">
+                      {WEEKDAY_LABELS[colIdx]}
+                    </div>
+                    <div className="text-sm font-semibold text-[var(--text-primary)]">{d.date()}</div>
+                  </div>
+                  <div className="flex flex-1 flex-col gap-2">
+                    {items.map((s, idx) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => navigate(RoutePaths.SESSION_DETAIL.replace(':sessionId', s.id))}
+                        className={cn(
+                          'animate-slide-up rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2 text-left text-xs shadow-sm transition hover:border-[var(--border-strong)] hover:shadow-md',
+                        )}
+                        style={{ animationDelay: `${idx * 40}ms` }}
+                      >
+                        <p className="truncate font-medium text-[var(--text-primary)]">
+                          {s.classCode ?? s.className ?? 'Lớp'}
+                        </p>
+                        <p className="truncate text-[10px] text-[var(--text-muted)]">{s.shiftLabel ?? '—'}</p>
+                        <span
+                          className={cn(
+                            'mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium',
+                            s.roleType === 'cover'
+                              ? 'bg-amber-500/15 text-amber-300'
+                              : 'bg-blue-500/15 text-blue-300',
+                          )}
+                        >
+                          {s.roleType === 'cover' ? 'Cover' : 'Chính'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

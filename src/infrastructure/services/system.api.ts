@@ -1,78 +1,74 @@
-/**
- * system.api.ts
- * Lớp giao tiếp HTTP cho module Hệ thống và Phân quyền (Auth Management).
- */
-
+import { AxiosHeaders } from 'axios';
 import { apiClient } from '@/app/config/axios';
-import type { ApiSuccessResponse } from '@/shared/types/api.type';
 import type {
-  ListNotificationsDto,
-  ListAuditLogsParams,
-  ListUsersParams,
-  CreateUserDto,
-  UpdateUserDto,
-  AssignRoleDto
-} from '@/application/system/dto/system.dto';
+  AuditLog,
+  GlobalSearchResponse,
+  ImportResult,
+  PagedResponse,
+  StudentSearchItem,
+} from '@/shared/types/api-contract';
+import { unwrapApiData } from '@/infrastructure/services/api-unwrap.util';
+import { compactParams } from '@/infrastructure/services/query-params.util';
 
-/**
- * Service gọi API liên quan đến Hệ thống, Thông báo và Quản lý người dùng.
- */
-export const systemApi = {
-  // --- NOTIFICATIONS ---
+export async function globalSearch(q: string): Promise<GlobalSearchResponse> {
+  const res = await apiClient.get('/search', { params: { q } });
+  return unwrapApiData<GlobalSearchResponse>(res);
+}
 
-  /** Lấy danh sách thông báo của người dùng hiện tại */
-  listNotifications(params?: ListNotificationsDto) {
-    return apiClient.get<ApiSuccessResponse<any[]>>('/system/notifications', { params });
-  },
+export interface SearchStudentsParams {
+  q: string;
+  limit?: number;
+}
 
-  /** Đánh dấu một thông báo là đã đọc */
-  markNotificationRead(id: string) {
-    return apiClient.patch<ApiSuccessResponse<boolean>>(`/system/notifications/${id}/read`);
-  },
+export async function searchStudents(params: SearchStudentsParams): Promise<StudentSearchItem[]> {
+  const res = await apiClient.get('/search/students', {
+    params: compactParams(params as unknown as Record<string, unknown>),
+  });
+  return unwrapApiData<StudentSearchItem[]>(res);
+}
 
-  /** Đánh dấu tất cả thông báo của mình là đã đọc */
-  markAllNotificationsRead() {
-    return apiClient.patch<ApiSuccessResponse<boolean>>('/system/notifications/read-all');
-  },
+export interface AuditLogsListParams {
+  page?: number;
+  limit?: number;
+  action?: string;
+  entityType?: string;
+  fromDate?: string;
+  toDate?: string;
+}
 
-  // --- AUDIT LOGS ---
+export async function getAuditLogs(params?: AuditLogsListParams): Promise<PagedResponse<AuditLog>> {
+  const res = await apiClient.get('/audit-logs', {
+    params: params ? compactParams(params as Record<string, unknown>) : undefined,
+  });
+  return unwrapApiData<PagedResponse<AuditLog>>(res);
+}
 
-  /** Lấy danh sách nhật ký kiểm toán (yêu cầu quyền quản lý) */
-  listAuditLogs(params?: ListAuditLogsParams) {
-    return apiClient.get<ApiSuccessResponse<any[]>>('/system/audit-logs', { params });
-  },
+export async function importData(
+  type: string,
+  file: File,
+  mode: 'preview' | 'commit',
+): Promise<ImportResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const headers = new AxiosHeaders();
+  headers.delete('Content-Type');
+  const res = await apiClient.post(`/import/${type}?mode=${encodeURIComponent(mode)}`, formData, { headers });
+  return unwrapApiData<ImportResult>(res);
+}
 
-  // --- USER MANAGEMENT ---
+export async function exportData(type: string, params?: Record<string, unknown>): Promise<Blob> {
+  const res = await apiClient.get<Blob>(`/export/${type}`, {
+    params: params ? compactParams(params) : undefined,
+    responseType: 'blob',
+  });
+  return res as unknown as Blob;
+}
 
-  /** Lấy danh sách người dùng trong hệ thống (search & filter) */
-  listUsers(params?: ListUsersParams) {
-    return apiClient.get<ApiSuccessResponse<any[]>>('/system/users', { params });
-  },
+export async function downloadTemplate(type: string): Promise<Blob> {
+  const res = await apiClient.get<Blob>(`/templates/${type}`, { responseType: 'blob' });
+  return res as unknown as Blob;
+}
 
-  /** Lấy thông tin chi tiết của một người dùng theo ID */
-  getUser(id: string) {
-    return apiClient.get<ApiSuccessResponse<any>>(`/system/users/${id}`);
-  },
-
-  /** Tạo tài khoản nhân viên mới */
-  createUser(dto: CreateUserDto) {
-    return apiClient.post<ApiSuccessResponse<any>>('/system/users', dto);
-  },
-
-  /** Cập nhật thông tin cơ bản của người dùng */
-  updateUser(id: string, dto: UpdateUserDto) {
-    return apiClient.patch<ApiSuccessResponse<any>>(`/system/users/${id}`, dto);
-  },
-
-  /** Gán một vai trò (role) cho người dùng */
-  assignRole(dto: AssignRoleDto) {
-    return apiClient.post<ApiSuccessResponse<boolean>>('/system/users/assign-role', dto);
-  },
-
-  /** Thu hồi một vai trò khỏi người dùng */
-  revokeRole(userId: string, roleCode: string) {
-    return apiClient.delete<ApiSuccessResponse<boolean>>('/system/users/revoke-role', {
-      data: { userId, roleCode }
-    });
-  },
-};
+export async function exportAuditLogs(params?: Record<string, unknown>): Promise<Blob> {
+  return exportData('audit-logs', params);
+}

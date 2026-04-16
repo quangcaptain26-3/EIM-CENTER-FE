@@ -1,31 +1,53 @@
-// form-input.tsx
-// Wrapper kết nối Input UI gốc với React Hook Form và FormField chuẩn.
+import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
+import { FormField } from './form-field';
+import { Input } from '@/shared/ui/input';
 
-import { forwardRef } from "react";
-import { Input, type InputProps } from "@/shared/ui/input";
-import { FormField } from "./form-field";
-
-export interface FormInputProps extends InputProps {
+export interface FormInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  htmlFor?: string;
+  required?: boolean;
   error?: string;
-  // Bỏ required của HTML gốc đi để Zod kiểm tra thay
+  helpText?: string;
+  containerClassName?: string;
+  leftIcon?: ReactNode;
+  rightIcon?: ReactNode;
 }
 
 export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
-  ({ label, error, required, id, className, ...props }, ref) => {
+  (
+    {
+      label,
+      htmlFor,
+      required,
+      error,
+      helpText,
+      containerClassName,
+      id,
+      leftIcon,
+      rightIcon,
+      className,
+      ...props
+    },
+    ref,
+  ) => {
+    const inputId = id ?? htmlFor;
+
     return (
       <FormField
         label={label}
-        error={error}
+        htmlFor={inputId}
         required={required}
-        htmlFor={id}
-        className={className}
+        error={error}
+        helpText={helpText}
+        className={containerClassName}
       >
         <Input
           ref={ref}
-          id={id}
-          error={error} // Truyền error xuống để Input đổi màu viền
-          required={required}
+          id={inputId}
+          error={Boolean(error)}
+          leftIcon={leftIcon}
+          rightIcon={rightIcon}
+          className={className}
           {...props}
         />
       </FormField>
@@ -33,4 +55,4 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
   },
 );
 
-FormInput.displayName = "FormInput";
+FormInput.displayName = 'FormInput';

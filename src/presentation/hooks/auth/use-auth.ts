@@ -1,32 +1,36 @@
-// use-auth.ts
-// Hook đọc trạng thái auth từ Redux store.
-// Dùng trong mọi component cần biết user đang đăng nhập hay chưa.
-
+import { useCallback, useMemo } from 'react';
 import { useAppSelector } from '@/app/store/hooks';
-import { hasRole, hasAnyRole } from '@/domain/auth/rules/auth.rule';
+import {
+  selectIsAuthenticated,
+  selectPermissions,
+  selectRole,
+  selectUser,
+} from '@/app/store/auth.selectors';
+import { hasPermission } from '@/domain/auth/rules/auth.rule';
+import type { RoleCode } from '@/shared/types/auth.type';
 
-/**
- * Hook tiện ích cho auth state.
- * Trả về user, trạng thái đăng nhập, và các helper kiểm tra role.
- */
 export function useAuth() {
-  const user          = useAppSelector((s) => s.auth.user);
-  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
-  const initialized   = useAppSelector((s) => s.auth.initialized);
+  const user = useAppSelector(selectUser);
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const role = useAppSelector(selectRole) as RoleCode | null;
+  const permissions = useAppSelector(selectPermissions);
 
-  /** Danh sách roles của user hiện tại */
-  const roles = user?.roles ?? [];
+  const canDo = useCallback(
+    (action: string) => {
+      if (!permissions.length) return false;
+      if (permissions.includes('*')) return true;
+      return hasPermission(permissions, action);
+    },
+    [permissions],
+  );
 
-  return {
-    user,
-    isAuthenticated,
-    initialized,
-    roles,
-
-    /** Kiểm tra user có đúng role không */
-    hasRole: (role: string) => hasRole(roles, role),
-
-    /** Kiểm tra user có ít nhất một trong các role không */
-    hasAnyRole: (allowedRoles: string[]) => hasAnyRole(roles, allowedRoles),
-  };
+  return useMemo(
+    () => ({
+      user,
+      role,
+      isAuthenticated,
+      canDo,
+    }),
+    [user, role, isAuthenticated, canDo],
+  );
 }

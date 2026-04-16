@@ -1,6 +1,7 @@
 import { RoutePaths } from './route-paths';
 import type { AppRole } from '@/shared/constants/roles';
 import { AppRoles } from '@/shared/constants/roles';
+import { env } from '@/app/config/env';
 
 /**
  * Kiểu dữ liệu định nghĩa metadata cho một route.
@@ -391,6 +392,16 @@ export const appRouteMetaList: AppRouteMeta[] = [
         parentKey: 'system',
         allowedRoles: [AppRoles.ROOT],
         showInSidebar: true,
+        showInBreadcrumb: true,
+      },
+      {
+        key: 'demo-control-center',
+        label: 'Demo Control Center',
+        path: RoutePaths.DEMO_CONTROL_CENTER,
+        parentKey: 'system',
+        allowedRoles: [AppRoles.ROOT],
+        // chỉ show khi env demo để không lộ trên prod
+        showInSidebar: env.APP_ENV === 'demo',
         showInBreadcrumb: true,
       }
     ]

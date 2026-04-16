@@ -1,76 +1,101 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/infrastructure/query/query-keys";
-import { SessionsApiService } from "@/infrastructure/services/sessions.api";
-import { SessionMapper } from "@/application/sessions/mappers/sessions.mapper";
-import type { ListSessionsParams } from "@/application/sessions/dto/sessions.dto";
-import type { SessionModel } from "@/domain/sessions/models/session.model";
+import { useQuery } from '@tanstack/react-query';
+import { getAvailableCovers, getSession, getMySessions } from '@/infrastructure/services/sessions.api';
+import { getClassSessions } from '@/infrastructure/services/classes.api';
+import { QUERY_KEYS } from '@/infrastructure/query/query-keys';
+import {
+  parseAvailableCovers,
+  parseClassSessionsResponse,
+  parseMySessionsBundle,
+  parseSessionDetail,
+} from '@/infrastructure/services/session-parse.util';
 
-/**
- * Hook lấy danh sách tất cả các buổi học của một lớp.
- * Sắp xếp mặc định theo ngày học tăng dần (sessionDate ASC).
- * @param classId ID của lớp học
- * @param params Các thông số lọc bổ sung
- */
-export const useClassSessions = (
-  classId?: string,
-  params?: ListSessionsParams,
-): ReturnType<typeof useQuery<SessionModel[]>> => {
-  return useQuery({
-    queryKey: queryKeys.sessions.byClass(classId ?? ""),
-    queryFn: async () => {
-      const result = await SessionsApiService.listClassSessions(classId as string, params);
-      
-      // Chuyển đổi API Response (DTO) sang Domain Model
-      const models = SessionMapper.toModelList(result.data);
-      
-      // Sắp xếp các buổi học theo thời gian tăng dần để đảm bảo đúng luồng giảng dạy
-      return models.sort(
-        (a, b) => new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime()
-      );
-    },
-    enabled: !!classId,
-    placeholderData: keepPreviousData,
-  });
-};
+/** Buổi trong lớp — thay đổi thường xuyên */
+const STALE_SESSIONS_LIVE_MS = 0;
 
-/**
- * Hook lấy chi tiết của thông tin một buổi học.
- * @param sessionId ID của buổi học
- */
-export const useSession = (
-  sessionId?: string,
-): ReturnType<typeof useQuery<SessionModel>> => {
-  return useQuery({
-    queryKey: queryKeys.sessions.detail(sessionId ?? ""),
-    queryFn: async () => {
-      const result = await SessionsApiService.getSession(sessionId as string);
-      return SessionMapper.toModel(result.data);
-    },
-    enabled: !!sessionId,
+export function useClassSessions(classId: string | undefined) {
+  const q = useQuery({
+    queryKey: QUERY_KEYS.CLASSES.sessions(classId ?? ''),
+    queryFn: () => getClassSessions(classId!),
+    enabled: Boolean(classId),
+    staleTime: STALE_SESSIONS_LIVE_MS,
   });
-};
 
-/**
- * Hook truy vấn lấy danh sách các buổi học mà giáo viên được phân công đứng lớp thực tế.
- * (teacherEffectiveId bằng teacherId hiện tại).
- * Hỗ trợ cho trang "My Sessions" / Lịch dạy cá nhân.
- * @param teacherId ID của giáo viên
- */
-export const useMySessionsAsTeacher = (
-  teacherId?: string,
-): ReturnType<typeof useQuery<SessionModel[]>> => {
-  return useQuery({
-    queryKey: queryKeys.sessions.mySessionsByTeacher(teacherId ?? ""),
-    queryFn: async () => {
-      const result = await SessionsApiService.listTeacherSessions(teacherId as string);
-      
-      // Chuyển đổi API Response (DTO) sang Domain Model
-      const models = SessionMapper.toModelList(result.data);
-      
-      // Sắp xếp theo ngày học giảm dần (mới nhất lên đầu) hoặc tùy UI yêu cầu
-      // Ở đây trang My Sessions thường hiển thị timeline, nên có thể để mặc định sorting từ repo
-      return models;
-    },
-    enabled: !!teacherId,
+  return {
+    sessions: q.data ? parseClassSessionsResponse(q.data) : [],
+    isLoading: q.isLoading,
+    error: q.error,
+    refetch: q.refetch,
+  };
+}
+
+export interface MySessionsParams {
+  /** YYYY-MM — ưu tiên khi có */
+  monthKey?: string;
+  month?: number;
+  year?: number;
+}
+
+/** TEACHER — lịch buổi của tôi (tháng/năm hoặc monthKey) */
+export function useMySessions(params: MySessionsParams) {
+  const apiParams: Record<string, unknown> = {};
+  if (params.monthKey) {
+    apiParams.month = params.monthKey;
+  } else if (params.month != null && params.year != null) {
+    apiParams.month = params.month;
+    apiParams.year = params.year;
+  }
+
+  const q = useQuery({
+    queryKey: QUERY_KEYS.SESSIONS.my(apiParams),
+    queryFn: () => getMySessions(apiParams),
+    enabled: Object.keys(apiParams).length > 0,
+    staleTime: STALE_SESSIONS_LIVE_MS,
   });
-};
+
+  const bundle = q.data ? parseMySessionsBundle(q.data) : { sessions: [], summary: undefined };
+
+  return {
+    sessions: bundle.sessions,
+    summary: bundle.summary,
+    isLoading: q.isLoading,
+    error: q.error,
+    refetch: q.refetch,
+  };
+}
+
+export function useSessionDetail(sessionId: string | undefined) {
+  const q = useQuery({
+    queryKey: QUERY_KEYS.SESSIONS.detail(sessionId ?? ''),
+    queryFn: async () => {
+      const res = await getSession(sessionId!);
+      return parseSessionDetail(res);
+    },
+    enabled: Boolean(sessionId),
+    staleTime: STALE_SESSIONS_LIVE_MS,
+  });
+
+  return {
+    session: q.data ?? null,
+    isLoading: q.isLoading,
+    error: q.error,
+    refetch: q.refetch,
+  };
+}
+
+/** GV cover — gọi khi modal mở (enabled) */
+export function useAvailableCovers(sessionId: string | undefined, modalOpen = true) {
+  const q = useQuery({
+    queryKey: QUERY_KEYS.SESSIONS.availableCovers(sessionId ?? ''),
+    queryFn: () => getAvailableCovers(sessionId!),
+    enabled: Boolean(sessionId) && modalOpen,
+    staleTime: STALE_SESSIONS_LIVE_MS,
+  });
+
+  return {
+    teachers: q.data ? parseAvailableCovers(q.data) : [],
+    raw: q.data,
+    isLoading: q.isLoading,
+    error: q.error,
+    refetch: q.refetch,
+  };
+}

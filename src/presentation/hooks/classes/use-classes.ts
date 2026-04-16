@@ -1,78 +1,119 @@
-/**
- * Các hook truy vấn dữ liệu Lớp học (Classes)
- * Sử dụng TanStack Query + classesApi và ánh xạ sang Domain Model.
- */
-
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/infrastructure/query/query-keys";
-import { classesApi } from "@/infrastructure/services/classes.api";
-import type { ListClassesQueryDto } from "@/application/classes/dto/classes.dto";
+import { useQuery } from '@tanstack/react-query';
+import { getClass, getClasses, getPrograms, getRoster, getRooms } from '@/infrastructure/services/classes.api';
+import { QUERY_KEYS } from '@/infrastructure/query/query-keys';
 import {
-  mapClassDetailDtoToModel,
-  mapClassListDtoToModels,
-} from "@/application/classes/mappers/class.mapper";
-import type { ClassModel } from "@/domain/classes/models/class.model";
-import type { ClassRosterResponseDto } from "@/application/classes/dto/classes.dto";
+  parseClassDetail,
+  parseClassListResponse,
+  parseProgramsResponse,
+  parseRosterResponse,
+  parseRoomsResponse,
+} from '@/infrastructure/services/class-parse.util';
 
-/**
- * Hook lấy danh sách lớp học với search/filter theo program/status.
- * Trả về cấu trúc phân trang kèm theo mảng ClassModel.
- */
-export const useClasses = (
-  filters?: ListClassesQueryDto,
-): ReturnType<typeof useQuery<{
-  items: ClassModel[];
-  total: number;
-  limit?: number;
-  offset?: number;
-}>> => {
-  return useQuery({
-    queryKey: queryKeys.classes.list((filters ?? {}) as unknown as Record<string, unknown>),
-    queryFn: async () => {
-      const result = await classesApi.listClasses(filters);
-      const { items, total, limit, offset } = result.data;
+export interface ClassesListParams {
+  page: number;
+  limit: number;
+  programId?: string;
+  status?: string;
+  search?: string;
+  /** SHIFT_1 | SHIFT_2 */
+  shift?: string;
+}
 
-      return {
-        items: mapClassListDtoToModels(items),
-        total,
-        limit,
-        offset,
-      };
-    },
-    placeholderData: keepPreviousData,
+const STALE_REFERENCE_MS = 30_000;
+
+export function useClasses(params: ClassesListParams) {
+  const apiParams: Record<string, unknown> = {
+    page: params.page,
+    limit: params.limit,
+  };
+  if (params.programId) apiParams.programId = params.programId;
+  if (params.status) apiParams.status = params.status;
+  if (params.search?.trim()) apiParams.search = params.search.trim();
+  if (params.shift) apiParams.shift = params.shift;
+
+  const q = useQuery({
+    queryKey: QUERY_KEYS.CLASSES.list(apiParams),
+    queryFn: () => getClasses(apiParams),
+    staleTime: STALE_REFERENCE_MS,
   });
-};
 
-/**
- * Hook lấy chi tiết 1 lớp học.
- * Trả về ClassModel đã được map từ DTO chi tiết.
- */
-export const useClass = (
-  classId?: string,
-): ReturnType<typeof useQuery<ClassModel>> => {
-  return useQuery({
-    queryKey: queryKeys.classes.detail(classId ?? ""),
-    queryFn: async () => {
-      const result = await classesApi.getClass(classId as string);
-      return mapClassDetailDtoToModel(result.data);
-    },
-    enabled: !!classId,
+  const parsed = q.data ? parseClassListResponse(q.data) : { items: [], total: 0 };
+
+  return {
+    classes: parsed.items,
+    total: parsed.total,
+    isLoading: q.isLoading,
+    isFetching: q.isFetching,
+    error: q.error,
+    refetch: q.refetch,
+  };
+}
+
+/** @deprecated dùng useClasses */
+export const useClassesList = useClasses;
+
+export function useClass(classId: string | undefined) {
+  const q = useQuery({
+    queryKey: QUERY_KEYS.CLASSES.detail(classId ?? ''),
+    queryFn: () => getClass(classId!),
+    enabled: Boolean(classId),
+    staleTime: STALE_REFERENCE_MS,
   });
-};
 
-/**
- * Hook lấy danh sách học viên (roster) của lớp.
- */
-export const useClassRoster = (
-  classId?: string,
-): ReturnType<typeof useQuery<ClassRosterResponseDto[]>> => {
-  return useQuery({
-    queryKey: queryKeys.classes.roster(classId ?? ""),
-    queryFn: async () => {
-      const result = await classesApi.getRoster(classId as string);
-      return result.data;
-    },
-    enabled: !!classId,
+  return {
+    classDetail: q.data ? parseClassDetail(q.data) : null,
+    isLoading: q.isLoading,
+    error: q.error,
+    refetch: q.refetch,
+  };
+}
+
+export function useClassRoster(classId: string | undefined) {
+  const q = useQuery({
+    queryKey: QUERY_KEYS.CLASSES.roster(classId ?? ''),
+    queryFn: () => getRoster(classId!),
+    enabled: Boolean(classId),
+    staleTime: STALE_REFERENCE_MS,
   });
-};
 
+  return {
+    roster: q.data ? parseRosterResponse(q.data) : [],
+    isLoading: q.isLoading,
+    error: q.error,
+    refetch: q.refetch,
+  };
+}
+
+export function useRooms() {
+  return useQuery({
+    queryKey: QUERY_KEYS.REFERENCE.rooms,
+    queryFn: () => getRooms(),
+    staleTime: STALE_REFERENCE_MS,
+  });
+}
+
+export function usePrograms() {
+  return useQuery({
+    queryKey: QUERY_KEYS.REFERENCE.programs,
+    queryFn: () => getPrograms(),
+    staleTime: STALE_REFERENCE_MS,
+  });
+}
+
+export function useParsedRooms() {
+  const q = useRooms();
+  return {
+    rooms: q.data ? parseRoomsResponse(q.data) : [],
+    isLoading: q.isLoading,
+    refetch: q.refetch,
+  };
+}
+
+export function useParsedPrograms() {
+  const q = usePrograms();
+  return {
+    programs: q.data ? parseProgramsResponse(q.data) : [],
+    isLoading: q.isLoading,
+    refetch: q.refetch,
+  };
+}

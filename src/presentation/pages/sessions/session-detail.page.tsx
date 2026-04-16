@@ -1,219 +1,171 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, User, MessageCircle, CalendarPlus, BookOpen, XCircle } from "lucide-react";
-import PageShell from "../../layouts/page-shell";
-import { useSession } from "../../hooks/sessions/use-sessions";
-import { useClassRoster } from "../../hooks/classes/use-classes";
-import { useUpdateSession } from "../../hooks/sessions/use-session-mutations";
-import { SessionTypeBadge } from "../../components/sessions/session-type-badge";
-import { SessionStatusBadge } from "../../components/sessions/session-status-badge";
-import { CoverTeacherModal } from "../../components/sessions/cover-teacher-modal";
-import { ProtectedAction } from "../../components/common/protected-action";
-import { AppRoles } from "../../../shared/constants/roles";
-import { RoutePaths } from "../../../app/router/route-paths";
-import { Loading } from "../../../shared/ui/feedback/loading";
-import { ErrorState } from "../../../shared/ui/feedback/error-state";
-import { EmptyState } from "../../../shared/ui/feedback/empty";
+import { useMemo } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Button } from '@/shared/ui/button';
+import { useSessionDetail } from '@/presentation/hooks/sessions/use-sessions';
+import { useClassRoster } from '@/presentation/hooks/classes/use-classes';
+import { useRecordSessionAttendance } from '@/presentation/hooks/sessions/use-session-mutations';
+import { AttendanceForm } from '@/presentation/components/classes/attendance-form';
+import { StatusBadge } from '@/presentation/components/common/status-badge';
+import { RoutePaths } from '@/app/router/route-paths';
+import { formatDate } from '@/shared/lib/date';
+import { useAuth } from '@/presentation/hooks/auth/use-auth';
+import {
+  ATTENDANCE_PERMISSION_TOOLTIP,
+  attendanceDayBlockedTooltip,
+  canUserRecordAttendance,
+  getAttendanceBlockReason,
+} from '@/presentation/lib/attendance-access';
+import type { SessionAttendanceRow } from '@/shared/types/session.type';
 
-/**
- * Trang chi tiết của một Buổi Học (Session).
- * Dùng cho cả Giáo viên xem giáo án+ds học sinh, và Academic cài người dạy thay.
- */
-export const SessionDetailPage = () => {
+export default function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const { user, role } = useAuth();
 
-  const [isCoverTeacherModalOpen, setIsCoverTeacherModalOpen] = useState(false);
+  const { session, isLoading, refetch } = useSessionDetail(sessionId);
+  const { roster, isLoading: rosterLoading } = useClassRoster(session?.classId);
 
-  // Kéo Data Chi tiết Session
-  const { data: session, isLoading: sessionLoading, isError: sessionError } = useSession(sessionId);
-  const { mutate: updateSession, isPending: isUpdating } = useUpdateSession(session?.classId);
+  const canRecord = useMemo(
+    () => (session ? canUserRecordAttendance(role, user?.id, session) : false),
+    [role, user?.id, session],
+  );
 
-  // Cần classId từ session để lấy roster. Khóa query để chờ cắn classId
-  const { data: roster, isLoading: rosterLoading } = useClassRoster(session?.classId);
+  const blockReason = useMemo(
+    () => getAttendanceBlockReason(role, user?.id, session),
+    [role, user?.id, session],
+  );
 
-  // Xử lý loading và lỗi
-  if (sessionLoading) {
-    return (
-      <PageShell title="Chi tiết Buổi học">
-        <Loading text="Đang tải dữ liệu buổi học..." className="py-20" />
-      </PageShell>
-    );
+  const banner = useMemo(() => {
+    if (blockReason === 'day')
+      return attendanceDayBlockedTooltip(session?.scheduledDate);
+    if (blockReason === 'permission') return ATTENDANCE_PERMISSION_TOOLTIP;
+    if (blockReason === 'status') {
+      return 'Buổi học không còn ở trạng thái chờ — không thể sửa điểm danh tại đây.';
+    }
+    return null;
+  }, [blockReason, session?.scheduledDate]);
+
+  const attendanceRows = useMemo((): SessionAttendanceRow[] => {
+    if (!session) return [];
+    const attByEid = new Map(session.attendanceRows.map((r) => [r.enrollmentId, r]));
+    if (roster.length > 0) {
+      return roster.map((r) => {
+        const att = attByEid.get(r.enrollmentId);
+        return {
+          enrollmentId: r.enrollmentId,
+          studentId: r.studentId,
+          studentCode: r.studentCode ?? null,
+          studentName: r.studentName,
+          status: att?.status ?? null,
+          note: att?.note ?? null,
+          unexcusedAbsenceCount: r.unexcusedAbsenceCount,
+        };
+      });
+    }
+    return session.attendanceRows.map((row) => ({
+      ...row,
+      unexcusedAbsenceCount: row.unexcusedAbsenceCount,
+    }));
+  }, [session, roster]);
+
+  const record = useRecordSessionAttendance();
+
+  if (isLoading || !sessionId) {
+    return <p className="text-sm text-[var(--text-muted)]">Đang tải…</p>;
   }
 
-  if (sessionError || !session) {
+  if (!session) {
     return (
-      <PageShell title="Chi tiết Buổi học">
-        <ErrorState
-          title="Không tìm thấy buổi học"
-          message="Buổi học này có thể không tồn tại hoặc bạn không có quyền truy cập."
-          onRetry={() => window.location.reload()}
-        />
-      </PageShell>
+      <div className="space-y-2">
+        <p className="text-[var(--text-secondary)]">Không tìm thấy buổi học.</p>
+        <Button type="button" variant="secondary" onClick={() => navigate(RoutePaths.CLASSES)}>
+          Về danh sách lớp
+        </Button>
+      </div>
     );
   }
-
-  // Formatting strings
-  const formattedDate = new Date(session.sessionDate).toLocaleDateString("vi-VN", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  const lessonLabel =
-    session.lessonNo !== 0 ? (session.lessonPattern ?? String(session.lessonNo)) : "";
-  const courseSectionText = `Unit ${session.unitNo} ${lessonLabel ? "— Bài " + lessonLabel : ""}`;
-  const teacherText = session.teacherEffectiveName || "Chưa phân công";
-  const isCancelled = session.sessionStatus === "CANCELLED";
-
-  const handleToggleCancel = () => {
-    const newStatus = isCancelled ? "SCHEDULED" : "CANCELLED";
-    updateSession(
-      { sessionId: session.id, payload: { sessionStatus: newStatus } },
-      { onSuccess: () => {} }
-    );
-  };
 
   return (
-    <PageShell
-      title={`Chi tiết: Bài ${session.lessonNo || session.unitNo} (${formattedDate})`}
-      subtitle={`Lớp ID: ${session.classId}`} // Có thể query lấy class info để map name thay vì ID
-      actions={
-        <div className="flex gap-2">
-          <button
-            onClick={() => navigate(RoutePaths.CLASS_DETAIL.replace(":classId", session.classId))}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Trở về</span>
-          </button>
+    <div className="space-y-6">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="-ml-2 text-[var(--text-secondary)]"
+        onClick={() =>
+          session.classId
+            ? navigate(RoutePaths.CLASS_DETAIL.replace(':classId', session.classId))
+            : navigate(RoutePaths.CLASSES)
+        }
+      >
+        ← Lớp
+      </Button>
 
-          {/* Quy tắc: Academic/Root được gán */}
-          <ProtectedAction allowedRoles={[AppRoles.ROOT, AppRoles.ACADEMIC]}>
-            <button
-              onClick={handleToggleCancel}
-              disabled={isUpdating}
-              className={`px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 ${
-                isCancelled
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                  : "bg-red-600 hover:bg-red-700 text-white"
-              }`}
-            >
-              <XCircle className="w-4 h-4" />
-              <span>{isCancelled ? "Mở lại buổi học" : "Hủy buổi học"}</span>
-            </button>
-            <button
-              onClick={() => setIsCoverTeacherModalOpen(true)}
-              disabled={isCancelled}
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <CalendarPlus className="w-4 h-4" />
-              <span>Gán giáo viên dạy thay</span>
-            </button>
-          </ProtectedAction>
-        </div>
-      }
-    >
-      <div className="flex flex-col gap-6 mt-4">
-        {/* === HEADER TỔNG QUAN BÀI === */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 grid xl:grid-cols-4 md:grid-cols-2 grid-cols-1 gap-6">
-          <div className="flex bg-gray-50/50 rounded-lg p-4 border border-gray-100 gap-4">
-            <div className="bg-white p-2 border border-gray-200 rounded-lg shadow-sm h-min">
-              <BookOpen className="w-6 h-6 text-indigo-500" />
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-gray-500 uppercase">Nội dung học</div>
-              <div className="text-sm font-medium text-gray-900 mt-1">{courseSectionText}</div>
-              <div className="mt-2 flex items-center gap-2">
-                <SessionTypeBadge type={session.type} size="sm" />
-                <SessionStatusBadge status={session.sessionStatus ?? "SCHEDULED"} size="sm" />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex bg-gray-50/50 rounded-lg p-4 border border-gray-100 gap-4">
-            <div className="bg-white p-2 border border-blue-200 rounded-lg shadow-sm h-min">
-              <User className="w-6 h-6 text-blue-500" />
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-gray-500 uppercase">Giáo viên trực tiếp</div>
-              <div className="text-sm font-medium text-gray-900 mt-1">{teacherText}</div>
-              {session.teacherEffectiveId && <div className="text-xs text-indigo-600 mt-0.5 font-medium cursor-pointer">Xem hồ sơ</div>}
-            </div>
-          </div>
-        </div>
-
-        {/* === HAI CỘT CHÍNH === */}
-        <div className="grid xl:grid-cols-5 grid-cols-1 gap-6">
-          {/* CỘT 1: Danh sách roster đi học */}
-          <div className="xl:col-span-3 bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden flex flex-col h-[500px]">
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                <User className="w-4 h-4 text-gray-500" /> Danh sách học viên (Roster)
-              </h3>
-              <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full border border-indigo-100">
-                Sĩ số thực: {roster?.length || 0}
-              </span>
-            </div>
-            <div className="p-0 overflow-y-auto flex-1">
-              {rosterLoading ? (
-                 <Loading className="py-10" />
-              ) : roster?.length === 0 ? (
-                 <EmptyState title="Lớp chưa có học sinh" className="py-10" />
-              ) : (
-                <ul className="divide-y divide-gray-100">
-                  {roster?.map((student, idx) => (
-                    <li key={student.studentId} className="px-6 py-4 flex items-center gap-4 hover:bg-gray-50/50 transition">
-                      <div className="w-6 text-xs text-gray-400 font-medium">{(idx + 1).toString().padStart(2, '0')}</div>
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{student.fullName}</div>
-                        <div className="text-xs text-gray-500">{`Mã: ${student.studentId.slice(0, 8)}`}</div>
-                      </div>
-                      <div className="text-xs text-gray-400 italic">Chưa đánh giá</div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          {/* CỘT 2: Nút điều hướng đến trang Nhận xét & Điểm */}
-          <div className="xl:col-span-2 bg-indigo-50/30 border border-indigo-100 rounded-xl shadow-sm p-6 flex flex-col items-center justify-center text-center">
-            <div className="bg-indigo-100 p-4 rounded-full mb-4">
-              <MessageCircle className="w-8 h-8 text-indigo-600" />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Nhận xét & Đánh giá</h3>
-            <p className="text-sm text-gray-600 mb-6 max-w-sm">
-              Giáo viên đứng lớp điểm danh, ghi nhận xét và nhập điểm bài kiểm tra cho từng học viên trong buổi học này.
+      <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-6">
+        <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">Điểm danh buổi học</p>
+        <h1 className="mt-1 font-display text-xl font-semibold text-[var(--text-primary)]">
+          {session.classCode ? `${session.classCode} · ` : null}Buổi học
+        </h1>
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">
+          {formatDate(session.scheduledDate)}
+          {session.shiftLabel ? ` · ${session.shiftLabel}` : null}
+          {session.roomName ? ` · Phòng ${session.roomName}` : null}
+        </p>
+        <div className="mt-3 space-y-1 text-sm">
+          {session.mainTeacherName ? (
+            <p className="text-[var(--text-muted)]">
+              <span className="text-[var(--text-muted)]">GV chính: </span>
+              <span className="text-[var(--text-primary)]">{session.mainTeacherName}</span>
             </p>
-            {isCancelled ? (
-              <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                Buổi học đã bị hủy. Không thể nhập nhận xét hoặc điểm.
-              </div>
-            ) : (
-              <button
-                onClick={() => navigate(RoutePaths.SESSION_FEEDBACK.replace(':sessionId', session.id))}
-                className="px-5 py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm transition flex items-center gap-2"
-              >
-                <MessageCircle className="w-4 h-4" />
-                Vào trang Nhận xét &amp; Điểm
-              </button>
-            )}
-          </div>
+          ) : null}
+          {session.coverTeacherName && session.coverStatus !== 'cancelled' ? (
+            <p className="text-[var(--text-muted)]">
+              <span className="text-[var(--text-muted)]">GV dạy thay (cover): </span>
+              <span className="font-medium text-amber-200/95">{session.coverTeacherName}</span>
+            </p>
+          ) : null}
+          {session.coverReason && session.coverStatus !== 'cancelled' ? (
+            <p className="text-xs text-[var(--text-muted)]">
+              Lý do cover: <span className="text-[var(--text-secondary)]">{session.coverReason}</span>
+            </p>
+          ) : null}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <StatusBadge domain="session" status={session.status} />
         </div>
       </div>
 
-      {isCoverTeacherModalOpen && (
-        <CoverTeacherModal 
-          isOpen={isCoverTeacherModalOpen} 
-          onClose={() => setIsCoverTeacherModalOpen(false)}
-          sessionId={session.id}
-          classId={session.classId}
-          currentTeacherName={session.teacherEffectiveName}
-        />
-      )}
-    </PageShell>
-  );
-};
+      {banner ? (
+        <p className="rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100/95">
+          {banner}
+        </p>
+      ) : null}
 
-export default SessionDetailPage;
+      {rosterLoading ? (
+        <p className="text-sm text-[var(--text-muted)]">Đang tải danh sách học viên…</p>
+      ) : attendanceRows.length === 0 ? (
+        <p className="text-sm text-amber-400/90">
+          Chưa có danh sách học viên. Thêm HV vào lớp hoặc kiểm tra API.
+        </p>
+      ) : (
+        <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4">
+          <h2 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">Điểm danh</h2>
+          <AttendanceForm
+            key={`${session.id}-${roster.length}`}
+            initialRows={attendanceRows}
+            interactive={canRecord}
+            isSubmitting={record.isPending}
+            onSubmit={async ({ records }) => {
+              await record.mutateAsync({
+                id: session.id,
+                classId: session.classId,
+                body: { records },
+              });
+              void refetch();
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

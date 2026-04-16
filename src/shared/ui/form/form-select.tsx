@@ -1,26 +1,50 @@
-import { forwardRef } from "react";
-import { Select, type SelectProps } from "@/shared/ui/select";
-import { FormField } from "./form-field";
+import { forwardRef, type SelectHTMLAttributes } from 'react';
+import { FormField } from './form-field';
+import { Select } from '@/shared/ui/select';
 
-export interface FormSelectProps extends SelectProps {
+export interface FormSelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
+  htmlFor?: string;
+  required?: boolean;
+  error?: string;
+  helpText?: string;
+  options: { value: string | number; label: string }[];
+  containerClassName?: string;
 }
 
 export const FormSelect = forwardRef<HTMLSelectElement, FormSelectProps>(
-  ({ label, error, required, id, className, ...props }, ref) => {
+  (
+    {
+      label,
+      htmlFor,
+      required,
+      error,
+      helpText,
+      options,
+      containerClassName,
+      id,
+      className,
+      ...props
+    },
+    ref,
+  ) => {
+    const selectId = id ?? htmlFor;
+
     return (
       <FormField
         label={label}
-        error={error}
+        htmlFor={selectId}
         required={required}
-        htmlFor={id}
-        className={className}
+        error={error}
+        helpText={helpText}
+        className={containerClassName}
       >
         <Select
           ref={ref}
-          id={id}
-          error={error}
-          required={required}
+          id={selectId}
+          error={Boolean(error)}
+          options={options}
+          className={className}
           {...props}
         />
       </FormField>
@@ -28,4 +52,4 @@ export const FormSelect = forwardRef<HTMLSelectElement, FormSelectProps>(
   },
 );
 
-FormSelect.displayName = "FormSelect";
+FormSelect.displayName = 'FormSelect';
