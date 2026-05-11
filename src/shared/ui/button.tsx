@@ -147,7 +147,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button ref={ref} type={type} disabled={isDisabled} className={classes} {...props}>
       {adornmentStart ? <span className="inline-flex shrink-0">{adornmentStart}</span> : null}
       {children != null && children !== false ? (
-        <span className={cn(size === 'icon' || size === 'icon-sm' ? 'sr-only' : 'truncate')}>
+        <span
+          className={cn(
+            'inline-flex min-w-0 items-center justify-center gap-1.5',
+            size === 'icon' || size === 'icon-sm' ? 'sr-only' : 'truncate',
+          )}
+        >
           {children}
         </span>
       ) : null}

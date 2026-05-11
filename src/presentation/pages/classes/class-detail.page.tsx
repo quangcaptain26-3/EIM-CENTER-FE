@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, type ReactNode, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -28,8 +28,42 @@ import { usePermission } from '@/presentation/hooks/use-permission';
 import { Tooltip } from '@/shared/ui/tooltip';
 import { programPillClass } from '@/presentation/components/classes/program-theme';
 import { cn } from '@/shared/lib/cn';
-import type { RosterRow } from '@/shared/types/class.type';
+import type { ClassDetail, RosterRow } from '@/shared/types/class.type';
 import { fmt } from '@/shared/lib/fmt';
+
+/** Một dòng meta: chỉ in phần đã có dữ liệu (không dùng “—” làm placeholder). */
+function classDetailMetaLine(c: ClassDetail, maxCap: number) {
+  const bits: { key: string; node: ReactNode }[] = [];
+  if (c.shiftLabel?.trim()) bits.push({ key: 'shift', node: c.shiftLabel.trim() });
+  if (c.scheduleLabel?.trim()) bits.push({ key: 'sched', node: c.scheduleLabel.trim() });
+  const roomDisp = (c.roomName ?? c.roomCode)?.trim();
+  if (roomDisp) bits.push({ key: 'room', node: `Phòng ${roomDisp}` });
+  bits.push({
+    key: 'gv',
+    node: (
+      <>
+        GV:{' '}
+        <span className={cn(c.mainTeacherName?.trim() && 'font-medium text-[var(--text-primary)]')}>
+          {c.mainTeacherName?.trim() || (
+            <span className="text-[var(--text-muted)]">Chưa phân công</span>
+          )}
+        </span>
+      </>
+    ),
+  });
+  bits.push({ key: 'cap', node: `Sĩ số ${c.enrollmentCount ?? 0}/${maxCap}` });
+
+  return (
+    <p className="text-sm text-[var(--text-secondary)]">
+      {bits.map((b, i) => (
+        <Fragment key={b.key}>
+          {i > 0 ? ' · ' : null}
+          {b.node}
+        </Fragment>
+      ))}
+    </p>
+  );
+}
 
 const replaceSchema = z.object({
   newTeacherId: z.string().min(1, 'Chọn GV mới'),
@@ -220,16 +254,18 @@ export default function ClassDetailPage() {
       </Button>
 
       {showPendingNoSessionsBanner ? (
-        <div className="flex flex-col gap-3 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-amber-100/95">Lớp chưa có lịch học.</p>
+        <div className="flex flex-col gap-3 rounded-2xl border border-[var(--warning-border)] bg-[var(--warning-bg)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-amber-600/55 dark:bg-amber-950 dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+          <p className="text-sm font-semibold text-[var(--warning-text)] dark:text-amber-100">
+            Lớp chưa có lịch học.
+          </p>
           {canManageSchedule ? (
             <Button
               type="button"
               variant="outline"
-              className="shrink-0 border-amber-500/50 text-amber-200 hover:bg-amber-500/15"
+              className="shrink-0 border-[var(--warning)] bg-[var(--bg-surface)] font-medium text-[var(--warning)] shadow-sm hover:bg-[var(--warning-bg)] dark:border-amber-500 dark:bg-amber-900 dark:text-amber-50 dark:hover:bg-amber-800"
               onClick={() => setGenerateSessionsOpen(true)}
             >
-              Sinh lịch học ngay →
+              Tạo lịch học →
             </Button>
           ) : null}
         </div>
@@ -247,10 +283,7 @@ export default function ClassDetailPage() {
                 {c.status}
               </Badge>
             </div>
-            <p className="text-sm text-[var(--text-secondary)]">
-              {c.shiftLabel ?? '—'} · {c.scheduleLabel ?? '—'} · {c.roomName ?? '—'} · GV:{' '}
-              <span className="text-[var(--text-primary)]">{c.mainTeacherName ?? '—'}</span> · Sĩ số {c.enrollmentCount ?? 0}/{maxCap}
-            </p>
+            {classDetailMetaLine(c, maxCap)}
             {c.startDate ? (
               <p className="text-xs text-[var(--text-muted)]">Khai giảng: {formatDate(c.startDate)}</p>
             ) : null}
@@ -434,18 +467,18 @@ export default function ClassDetailPage() {
         open={generateSessionsOpen}
         onClose={() => setGenerateSessionsOpen(false)}
         variant="warning"
-        title="Sinh lịch học?"
+        title="Tạo lịch học?"
         message={
           c.startDate
-            ? `Hệ thống sẽ sinh các buổi học từ ngày khai giảng đã chọn (${formatDate(c.startDate)}), bỏ qua ngày lễ. Tiếp tục?`
-            : 'Hệ thống sẽ sinh lịch buổi học (bỏ qua ngày lễ). Tiếp tục?'
+            ? `Hệ thống sẽ tạo các buổi học từ ngày khai giảng đã chọn (${formatDate(c.startDate)}), bỏ qua ngày lễ. Tiếp tục?`
+            : 'Hệ thống sẽ tạo lịch buổi học (bỏ qua ngày lễ). Tiếp tục?'
         }
-        confirmLabel="Sinh lịch học"
+        confirmLabel="Tạo lịch học"
         cancelLabel="Hủy"
         loading={generateSessionsM.isPending}
         onConfirm={async () => {
           if (!classId || !c.startDate) {
-            toast.error('Thiếu ngày khai giảng trên lớp — không sinh được lịch.');
+            toast.error('Thiếu ngày khai giảng trên lớp — không tạo được lịch.');
             setGenerateSessionsOpen(false);
             return;
           }
@@ -455,7 +488,7 @@ export default function ClassDetailPage() {
               body: { startDate: c.startDate },
             });
             toast.success(
-              `Đã sinh ${result.sessionsCreated} buổi học từ ${formatDate(result.firstDate)} đến ${formatDate(result.lastDate)}`,
+              `Đã tạo ${result.sessionsCreated} buổi học từ ${formatDate(result.firstDate)} đến ${formatDate(result.lastDate)}`,
             );
             setGenerateSessionsOpen(false);
             void refetchClass();

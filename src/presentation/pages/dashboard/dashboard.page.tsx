@@ -45,19 +45,25 @@ export default function DashboardPage() {
         <PageHeader title="Tổng quan" subtitle={subtitle} />
         <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
           {updatedAt ? (
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-[var(--text-muted)]">
               Cập nhật lúc {dayjs(updatedAt).format('HH:mm')}
             </span>
           ) : null}
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            className="gap-2"
+            size="md"
+            className="shrink-0"
+            leftIcon={
+              <RefreshCw
+                className={cn('size-4', (spin || isFetching) && 'animate-spin')}
+                strokeWidth={1.5}
+                aria-hidden
+              />
+            }
             onClick={() => void onRefresh()}
             disabled={isFetching}
           >
-            <RefreshCw className={cn('size-4', (spin || isFetching) && 'animate-spin')} />
             Làm mới
           </Button>
         </div>

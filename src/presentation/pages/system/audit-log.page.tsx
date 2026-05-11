@@ -246,8 +246,12 @@ export default function AuditLogPage() {
           <Button type="button" variant="secondary" onClick={() => void refetch()}>
             Làm mới
           </Button>
-          <Button type="button" isLoading={exporting} onClick={() => void downloadExport()}>
-            <Download className="mr-1.5 size-4" />
+          <Button
+            type="button"
+            isLoading={exporting}
+            onClick={() => void downloadExport()}
+            leftIcon={<Download className="size-4" strokeWidth={1.5} aria-hidden />}
+          >
             Xuất CSV
           </Button>
         </div>

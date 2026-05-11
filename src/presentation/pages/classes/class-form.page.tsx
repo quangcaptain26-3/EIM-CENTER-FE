@@ -248,7 +248,7 @@ export function ClassFormPage() {
           body: { startDate },
         });
         toast.success(
-          `Đã sinh ${result.sessionsCreated} buổi học từ ${formatDate(result.firstDate)} đến ${formatDate(result.lastDate)}`,
+          `Đã tạo ${result.sessionsCreated} buổi học từ ${formatDate(result.firstDate)} đến ${formatDate(result.lastDate)}`,
         );
       } catch (e) {
         toastApiError(e);
@@ -544,9 +544,9 @@ export function ClassFormPage() {
         variant="warning"
         title={pendingClassCode ? `Lớp ${pendingClassCode} đã tạo thành công!` : 'Đã tạo lớp thành công!'}
         message={
-          'Bạn có muốn sinh lịch học ngay không?\n(Hệ thống sẽ tự sinh 24 buổi, bỏ qua ngày lễ)'
+          'Bạn có muốn tạo lịch học ngay không?\n(Hệ thống sẽ tự tạo 24 buổi, bỏ qua ngày lễ)'
         }
-        confirmLabel="Sinh lịch học →"
+        confirmLabel="Tạo lịch học →"
         cancelLabel="Để sau"
         loading={generateSessions.isPending}
         onConfirm={async () => {

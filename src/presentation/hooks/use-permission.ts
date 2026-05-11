@@ -15,8 +15,8 @@ export function usePermission() {
 
     return {
       role: r,
-      /** Thay GV chính — chỉ ADMIN */
-      canReplaceMainTeacher: r === ROLES.ADMIN,
+      /** Thay GV chính — ADMIN + Học vụ */
+      canReplaceMainTeacher: r === ROLES.ADMIN || r === ROLES.ACADEMIC,
       /** Đổi lương GV — chỉ ADMIN */
       canChangeTeacherSalary: r === ROLES.ADMIN,
       /** Duyệt / từ chối bảo lưu — chỉ ADMIN */

@@ -60,12 +60,19 @@ export default function PayrollDetailPage() {
         <Button type="button" variant="secondary" onClick={() => navigate(RoutePaths.PAYROLL)}>
           ← Danh sách
         </Button>
-        <Button type="button" variant="secondary" onClick={() => window.print()}>
-          <Printer className="mr-1.5 size-4" />
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => window.print()}
+          leftIcon={<Printer className="size-4" strokeWidth={1.5} aria-hidden />}
+        >
           In
         </Button>
-        <Button type="button" onClick={() => window.print()}>
-          <Download className="mr-1.5 size-4" />
+        <Button
+          type="button"
+          onClick={() => window.print()}
+          leftIcon={<Download className="size-4" strokeWidth={1.5} aria-hidden />}
+        >
           Tải PDF (in → PDF)
         </Button>
       </div>

@@ -1,5 +1,6 @@
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { PATHS } from '@/app/router/route-paths';
 import {
   ChevronLeft,
   ChevronRight,
@@ -48,6 +49,17 @@ function DashboardOutlet() {
   );
 }
 
+/** NavLink mặc định coi `/students` active cả khi đang ở `/students/pause-requests` — tách highlight sidebar. */
+function sidebarNavIsActive(pathname: string, itemPath: string, navLinkIsActive: boolean): boolean {
+  if (itemPath === PATHS.STUDENTS) {
+    if (pathname === PATHS.STUDENTS) return true;
+    if (pathname.startsWith(`${PATHS.STUDENTS}/pause-requests`)) return false;
+    if (pathname.startsWith(`${PATHS.STUDENTS}/makeup-sessions`)) return false;
+    return pathname.startsWith(`${PATHS.STUDENTS}/`);
+  }
+  return navLinkIsActive;
+}
+
 const navLinkClass = (collapsed: boolean, isActive: boolean) =>
   cn(
     'relative flex items-center gap-3 rounded-lg border-l-2 border-transparent py-2.5 text-sm transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]',
@@ -58,6 +70,7 @@ const navLinkClass = (collapsed: boolean, isActive: boolean) =>
   );
 
 export function DashboardLayout() {
+  const { pathname } = useLocation();
   const user = useAppSelector((s) => s.auth.user);
   const logout = useLogout();
   const menuGroups = useSidebarMenuGrouped();
@@ -166,7 +179,7 @@ export function DashboardLayout() {
                   {group.label}
                 </p>
               ) : null}
-              <div className="space-y-0.5">
+              <div className="space-y-1.5">
                 {group.items.map((item) => {
                   const count = badgeCount(item.badgeKey, pauseCount);
                   return (
@@ -178,7 +191,12 @@ export function DashboardLayout() {
                         ? { 'data-tooltip': item.label, 'data-tooltip-side': 'right' as const }
                         : {})}
                       onClick={closeMobile}
-                      className={({ isActive }) => navLinkClass(collapsed, isActive)}
+                      className={({ isActive }) =>
+                        navLinkClass(
+                          collapsed,
+                          sidebarNavIsActive(pathname, item.path, isActive),
+                        )
+                      }
                     >
                       <span className="relative shrink-0 [&_svg]:stroke-current">
                         <item.icon className="size-5" strokeWidth={1.5} aria-hidden />

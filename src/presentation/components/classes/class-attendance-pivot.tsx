@@ -64,8 +64,13 @@ export function ClassAttendancePivot({ classId, classCode, matrix, isLoading }: 
         <p className="text-sm text-[var(--text-secondary)]">
           Học viên × buổi 1…{matrix.sessions.length} — P có mặt, L muộn, A vắng có phép, U vắng không phép.
         </p>
-        <Button type="button" variant="secondary" size="sm" onClick={() => void handleExport()}>
-          <Download className="mr-1.5 size-4" />
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => void handleExport()}
+          leftIcon={<Download className="size-4" strokeWidth={1.5} aria-hidden />}
+        >
           Xuất Excel
         </Button>
       </div>
