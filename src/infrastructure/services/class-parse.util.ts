@@ -81,7 +81,11 @@ export function parseClassDetail(raw: unknown): ClassDetail | null {
   const label = (base.scheduleLabel ?? base.schedule_label) as string | undefined;
   const scheduleLabel =
     (label && String(label).trim()) || (Array.isArray(days) && days.length > 0 ? scheduleDays(days) : undefined);
-  return { ...(base as unknown as ClassDetail), scheduleLabel };
+  const merged = { ...(base as unknown as ClassDetail), scheduleLabel };
+  const enriched = enrichClassListItem(merged);
+  const rc = enriched.roomCode?.trim();
+  const rn = enriched.roomName?.trim();
+  return { ...enriched, roomName: rn || rc || undefined };
 }
 
 function normalizeRosterRow(row: Record<string, unknown>): RosterRow {
@@ -103,7 +107,11 @@ function normalizeRosterRow(row: Record<string, unknown>): RosterRow {
         ? Number(row.sessionsCompleted)
         : row.sessions_completed != null
           ? Number(row.sessions_completed)
-          : undefined,
+          : row.sessionsAttended != null
+            ? Number(row.sessionsAttended)
+            : row.sessions_attended != null
+              ? Number(row.sessions_attended)
+              : undefined,
     sessionsTotal:
       row.sessionsTotal != null
         ? Number(row.sessionsTotal)
