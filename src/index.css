@@ -1,0 +1,2 @@
+/* Entry CSS — dùng @/styles/index.css từ main.tsx. File này re-export để tránh nhầm lẫn. */
+@import "./styles/index.css";
