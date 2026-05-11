@@ -17,7 +17,7 @@ import { formatDateTimeUtc7 } from '@/shared/lib/date';
 dayjs.extend(relativeTime);
 dayjs.locale('vi');
 
-const AUDIT_DOMAINS = ['AUTH', 'USER', 'CLASS', 'ENROLLMENT', 'ATTENDANCE', 'FINANCE', 'STAFF', 'SYSTEM'] as const;
+const AUDIT_DOMAINS = ['AUTH', 'USER', 'CLASS', 'ENROLLMENT', 'ATTENDANCE', 'FINANCE', 'STAFF', 'SYSTEM', 'HTTP'] as const;
 
 function diffKeys(oldV: Record<string, unknown> | null | undefined, newV: Record<string, unknown> | null | undefined) {
   const a = oldV ?? {};

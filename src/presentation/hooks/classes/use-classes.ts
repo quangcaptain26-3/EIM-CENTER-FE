@@ -81,7 +81,11 @@ export function useClassRoster(classId: string | undefined) {
     queryKey: QUERY_KEYS.CLASSES.roster(classId ?? ''),
     queryFn: () => getRoster(classId!),
     enabled: Boolean(classId),
-    staleTime: STALE_REFERENCE_MS,
+    // Attendance-derived numbers (sessions_attended, makeup_blocked, etc.)
+    // cần nhìn "real-time-ish" cho học vụ/admin sau khi GV vừa submit.
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
   return {
@@ -97,7 +101,10 @@ export function useClassAttendanceMatrix(classId: string | undefined) {
     queryKey: QUERY_KEYS.CLASSES.attendanceMatrix(classId ?? ''),
     queryFn: () => getClassAttendanceMatrix(classId!),
     enabled: Boolean(classId),
-    staleTime: 15_000,
+    // Giảm cache để trang "Điểm danh" phản ánh ngay khi GV submit.
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
   return {
     matrix: q.data ?? null,

@@ -110,6 +110,9 @@ export function useRecordSessionAttendance() {
         const map = new Map(records.map((r) => [r.enrollmentId, r]));
         qc.setQueryData<SessionDetailPayload | null>(QUERY_KEYS.SESSIONS.detail(id), {
           ...previous,
+          // Teacher must be locked right after first submit; backend sets completed anyway.
+          // Academic can still edit completed; admin will be blocked by rule.
+          status: 'completed',
           attendanceRows: previous.attendanceRows.map((row) => {
             const u = map.get(row.enrollmentId);
             return u ? { ...row, status: u.status, note: u.note ?? row.note } : row;

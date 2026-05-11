@@ -9,6 +9,7 @@ import { StatusBadge } from '@/presentation/components/common/status-badge';
 import { RoutePaths } from '@/app/router/route-paths';
 import { formatDate } from '@/shared/lib/date';
 import { useAuth } from '@/presentation/hooks/auth/use-auth';
+import { ROLES } from '@/shared/constants/roles';
 import {
   ATTENDANCE_PERMISSION_TOOLTIP,
   attendanceDayBlockedTooltip,
@@ -40,10 +41,16 @@ export default function SessionDetailPage() {
       return attendanceDayBlockedTooltip(session?.scheduledDate);
     if (blockReason === 'permission') return ATTENDANCE_PERMISSION_TOOLTIP;
     if (blockReason === 'status') {
-      return 'Buổi học không còn ở trạng thái chờ — không thể sửa điểm danh tại đây.';
+      if (role === ROLES.ADMIN && session?.status === 'completed') {
+        return 'Buổi đã hoàn tất điểm danh — Giám đốc chỉ xem audit; học vụ chỉnh sửa khi cần.';
+      }
+      if (role === ROLES.TEACHER && session?.status === 'completed') {
+        return 'Buổi đã hoàn tất điểm danh — liên hệ học vụ nếu cần chỉnh.';
+      }
+      return 'Buổi học không còn ở trạng thái cho phép điểm danh tại đây.';
     }
     return null;
-  }, [blockReason, session?.scheduledDate]);
+  }, [blockReason, session?.scheduledDate, role, session?.status]);
 
   const attendanceRows = useMemo((): SessionAttendanceRow[] => {
     if (!session) return [];
@@ -156,7 +163,13 @@ export default function SessionDetailPage() {
             key={`${session.id}-${roster.length}`}
             initialRows={attendanceRows}
             interactive={canRecord}
-            readOnlyReason={blockReason === 'day' ? 'Chỉ Admin có thể sửa sau ngày học' : undefined}
+            readOnlyReason={
+              blockReason === 'day'
+                ? role === ROLES.TEACHER
+                  ? 'Giáo viên chỉ điểm danh trong ngày học.'
+                  : 'Ngoài ngày học — học vụ có thể chỉnh điểm danh; giám đốc chỉ khi buổi còn chờ.'
+                : undefined
+            }
             isSubmitting={record.isPending}
             onSubmit={async ({ records }) => {
               await record.mutateAsync({

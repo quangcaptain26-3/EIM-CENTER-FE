@@ -16,17 +16,31 @@ export function getAttendanceBlockReason(
   session: Pick<SessionDetailPayload, 'mainTeacherId' | 'coverTeacherId' | 'status' | 'scheduledDate'> | null | undefined,
 ): AttendanceBlockReason | null {
   if (!session || !session.scheduledDate) return 'day';
-  if (session.status !== SESSION_STATUS.pending) return 'status';
-  if (!isTodayUtc7(session.scheduledDate)) return 'day';
+  if (session.status === SESSION_STATUS.cancelled) return 'status';
   if (!role) return 'permission';
-  if (role === ROLES.ADMIN || role === ROLES.ACADEMIC) return null;
-  if (
-    role === ROLES.TEACHER &&
-    userId &&
-    (session.mainTeacherId === userId || session.coverTeacherId === userId)
-  ) {
-    return null;
+
+  if (role === ROLES.ACADEMIC) {
+    if (session.status === SESSION_STATUS.pending || session.status === SESSION_STATUS.completed) {
+      return null;
+    }
+    return 'status';
   }
+
+  if (role === ROLES.ADMIN) {
+    if (session.status === SESSION_STATUS.completed) return 'status';
+    if (session.status === SESSION_STATUS.pending) return null;
+    return 'status';
+  }
+
+  if (role === ROLES.TEACHER) {
+    if (session.status !== SESSION_STATUS.pending) return 'status';
+    if (!isTodayUtc7(session.scheduledDate)) return 'day';
+    if (userId && (session.mainTeacherId === userId || session.coverTeacherId === userId)) {
+      return null;
+    }
+    return 'permission';
+  }
+
   return 'permission';
 }
 
