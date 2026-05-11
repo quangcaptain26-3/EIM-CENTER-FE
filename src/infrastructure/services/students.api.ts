@@ -140,6 +140,36 @@ export async function transferClass(
   return unwrapApiData<EnrollmentResponse>(res);
 }
 
+/** Q15: Admin mở khóa học bù — body.reason ≥ 10 ký tự (BE validate). */
+export async function resetMakeupBlocked(
+  enrollmentId: string,
+  body: { reason: string },
+): Promise<{ success: boolean; enrollmentId: string; makeupBlocked: boolean }> {
+  const res = await apiClient.post(`/enrollments/${enrollmentId}/reset-makeup-blocked`, body);
+  return unwrapApiData(res);
+}
+
+/** Q16: alias spec — cùng filter với GET /classes/suggestions + meta.hint. */
+export async function getScheduleConflictCheck(params: {
+  unavailableDays?: number[];
+  programId?: string;
+}): Promise<{ classes: Array<Record<string, unknown>>; hint?: string }> {
+  const res = await apiClient.get('/schedule/conflict-check', {
+    params: compactParams({
+      unavailableDays: params.unavailableDays?.join(','),
+      programId: params.programId,
+    }),
+  });
+  const unwrapped = unwrapApiData<
+    Array<Record<string, unknown>> | { data: Array<Record<string, unknown>>; meta?: { hint?: string } }
+  >(res);
+  if (Array.isArray(unwrapped)) {
+    return { classes: unwrapped };
+  }
+  const o = unwrapped as { data?: Array<Record<string, unknown>>; meta?: { hint?: string } };
+  return { classes: o.data ?? [], hint: o.meta?.hint };
+}
+
 export interface TransferEnrollmentBody {
   fromEnrollmentId: string;
   toStudentId: string;

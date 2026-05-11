@@ -4,6 +4,8 @@ import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { EnrollmentBadge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
+import { Modal } from '@/shared/ui/modal';
+import { Textarea } from '@/shared/ui/textarea';
 import { ENROLLMENT_STATUS } from '@/shared/constants/statuses';
 import type { EnrollmentCardModel } from '@/shared/types/student.type';
 import { programPillClass } from '@/presentation/components/classes/program-theme';
@@ -14,6 +16,7 @@ import {
   useActivateEnrollment,
   useDropEnrollment,
   usePauseEnrollment,
+  useResetMakeupBlocked,
   useResumeEnrollment,
   useTransferClass,
 } from '@/presentation/hooks/students/use-enrollment-mutations';
@@ -23,6 +26,14 @@ import { cn } from '@/shared/lib/cn';
 import { formatVnd } from '@/shared/utils/format-vnd';
 import { RoutePaths } from '@/app/router/route-paths';
 
+/**
+ * Thẻ một enrollment trên hồ sơ học sinh — luồng nghiệp vụ Q1/Q6/Q7/Q9/Q13 (EIM_QA + OVERVIEW).
+ *
+ * Cách vận hành (UI):
+ * - Kích hoạt / thôi học / resume: gọi mutation tương ứng; BE enforce đủ tiền, transition, lý do drop.
+ * - Bảo lưu: mở `PauseModal` — BE trả `requiresApproval` nếu từ buổi 4+ (Q6); trial không pause (BE chặn, Q33).
+ * - Chuyển lớp: `transferClassGuard` khớp Q9 (sessionsAttended < 3 và classTransferCount < 1); tooltip khi block.
+ */
 interface EnrollmentCardProps {
   enrollment: EnrollmentCardModel;
   studentId: string;
@@ -66,7 +77,10 @@ function CircularRing({ pct, size = 76 }: { pct: number; size?: number }) {
   );
 }
 
-/** Rule 2: ưu tiên điều kiện 1 (≥3 buổi) trước điều kiện 2 (đã chuyển). */
+/**
+ * Chặn nút chuyển lớp trên FE — Q9, OVERVIEW §6.2 (hai điều kiện đồng thời; ưu tiên hiển thị lỗi “≥3 buổi” trước “đã chuyển”).
+ * BE `transfer-class.usecase` vẫn validate lại; đây là UX + giảm request thừa.
+ */
 function transferClassGuard(e: EnrollmentCardModel): { blocked: boolean; tooltip: string | null } {
   const sa = e.sessionsAttended ?? 0;
   if (sa >= 3) {
@@ -83,17 +97,20 @@ function transferClassGuard(e: EnrollmentCardModel): { blocked: boolean; tooltip
 }
 
 export function EnrollmentCard({ enrollment: e, studentId, studentFullName }: EnrollmentCardProps) {
-  const { canManageAcademicEnrollment: canMutate } = usePermission();
+  const { canManageAcademicEnrollment: canMutate, canResetMakeupBlocked } = usePermission();
   const { total, done, pct } = sessionsProgress(e);
   const [transferOpen, setTransferOpen] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
+  const [makeupUnblockOpen, setMakeupUnblockOpen] = useState(false);
+  const [makeupUnblockReason, setMakeupUnblockReason] = useState('');
 
   const activate = useActivateEnrollment();
   const dropM = useDropEnrollment();
   const pauseM = usePauseEnrollment();
   const resumeM = useResumeEnrollment();
   const transferM = useTransferClass();
+  const resetMakeupM = useResetMakeupBlocked();
 
   const readonly =
     e.status === ENROLLMENT_STATUS.completed ||
@@ -200,10 +217,17 @@ export function EnrollmentCard({ enrollment: e, studentId, studentFullName }: En
             </div>
           </div>
           {e.makeupBlocked ? (
-            <p className="flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-200">
-              <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              Học bù bị khóa vì đã vắng không phép từ 3 lần trở lên
-            </p>
+            <div className="space-y-2">
+              <p className="flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-200">
+                <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                Học bù bị khóa vì đã vắng không phép từ 3 lần trở lên
+              </p>
+              {canResetMakeupBlocked ? (
+                <Button type="button" size="sm" variant="secondary" onClick={() => setMakeupUnblockOpen(true)}>
+                  Mở khóa học bù (Admin)
+                </Button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>
@@ -366,6 +390,56 @@ export function EnrollmentCard({ enrollment: e, studentId, studentFullName }: En
           setDropOpen(false);
         }}
       />
+
+      <Modal
+        isOpen={makeupUnblockOpen}
+        onClose={() => {
+          setMakeupUnblockOpen(false);
+          setMakeupUnblockReason('');
+        }}
+        title="Mở khóa học bù (Q15)"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setMakeupUnblockOpen(false);
+                setMakeupUnblockReason('');
+              }}
+              disabled={resetMakeupM.isPending}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              isLoading={resetMakeupM.isPending}
+              disabled={makeupUnblockReason.trim().length < 10}
+              onClick={async () => {
+                await resetMakeupM.mutateAsync({
+                  id: e.id,
+                  studentId,
+                  reason: makeupUnblockReason.trim(),
+                });
+                setMakeupUnblockOpen(false);
+                setMakeupUnblockReason('');
+              }}
+            >
+              Xác nhận mở khóa
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-[var(--text-secondary)]">
+          Ghi lý do ngoại lệ (tối thiểu 10 ký tự). Thao tác được ghi audit — chỉ dùng khi có quyết địch quản lý rõ ràng.
+        </p>
+        <Textarea
+          className="mt-3 min-h-[88px]"
+          placeholder="Ví dụ: Phụ huynh đã cam kết… / Hiểu nhầm điểm danh đã điều chỉnh…"
+          value={makeupUnblockReason}
+          onChange={(ev) => setMakeupUnblockReason(ev.target.value)}
+        />
+      </Modal>
 
     </div>
   );

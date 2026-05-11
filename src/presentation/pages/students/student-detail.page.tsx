@@ -28,7 +28,8 @@ import { formatDate, formatDateWithWeekday } from '@/shared/lib/date';
 import { formatVnd } from '@/shared/utils/format-vnd';
 import { cn } from '@/shared/lib/cn';
 import { Tooltip } from '@/shared/ui/tooltip';
-import { getClassSuggestions } from '@/infrastructure/services/students.api';
+import { getScheduleConflictCheck } from '@/infrastructure/services/students.api';
+import { scheduleDays } from '@/shared/lib/date';
 
 type TabKey = 'enroll' | 'attendance' | 'makeup' | 'finance';
 type AttFilter = 'all' | 'present' | 'absent';
@@ -60,6 +61,7 @@ export default function StudentDetailPage() {
   const [enrollmentStatus, setEnrollmentStatus] = useState<'reserved' | 'pending' | 'trial'>('pending');
   const [reservationFee, setReservationFee] = useState('');
   const [unavailableDays, setUnavailableDays] = useState<number[]>([]);
+  const [scheduleAcknowledged, setScheduleAcknowledged] = useState(false);
   const [makeupOpen, setMakeupOpen] = useState(false);
   const [makeupPrefillAttendanceId, setMakeupPrefillAttendanceId] = useState<string | null>(null);
   const [sessionMin, setSessionMin] = useState('');
@@ -97,13 +99,21 @@ export default function StudentDetailPage() {
   );
 
   const suggestionsQuery = useQuery({
-    queryKey: ['class-suggestions', programId, unavailableDays.join(',')],
-    queryFn: () => getClassSuggestions({ programId: programId || undefined, unavailableDays }),
+    queryKey: ['schedule-conflict-check', programId, unavailableDays.join(',')],
+    queryFn: () => getScheduleConflictCheck({ programId: programId || undefined, unavailableDays }),
     enabled: unavailableDays.length > 0 && Boolean(programId),
   });
   const suggestedClassIds = useMemo(
-    () => new Set((suggestionsQuery.data ?? []).map((r) => String((r as Record<string, unknown>).id ?? ''))),
-    [suggestionsQuery.data],
+    () =>
+      new Set(
+        (suggestionsQuery.data?.classes ?? []).map((r) => String((r as Record<string, unknown>).id ?? '')),
+      ),
+    [suggestionsQuery.data?.classes],
+  );
+
+  const selectedClassForEnroll = useMemo(
+    () => (classId ? classes.find((c) => c.id === classId) : undefined),
+    [classes, classId],
   );
 
   const filteredAttendance = useMemo(() => {
@@ -756,6 +766,7 @@ export default function StudentDetailPage() {
           setProgramId('');
           setClassId('');
           setUnavailableDays([]);
+          setScheduleAcknowledged(false);
           setEnrollmentStatus('pending');
           setReservationFee('');
         }}
@@ -770,6 +781,7 @@ export default function StudentDetailPage() {
                 setProgramId('');
                 setClassId('');
                 setUnavailableDays([]);
+                setScheduleAcknowledged(false);
                 setEnrollmentStatus('pending');
                 setReservationFee('');
               }}
@@ -780,7 +792,7 @@ export default function StudentDetailPage() {
             <Button
               type="button"
               isLoading={createEnr.isPending}
-              disabled={!classId || !studentId}
+              disabled={!classId || !studentId || !scheduleAcknowledged}
               onClick={async () => {
                 await createEnr.mutateAsync({
                   studentId,
@@ -794,6 +806,7 @@ export default function StudentDetailPage() {
                 setProgramId('');
                 setClassId('');
                 setUnavailableDays([]);
+                setScheduleAcknowledged(false);
                 setEnrollmentStatus('pending');
                 setReservationFee('');
                 void refetchEnr();
@@ -834,6 +847,7 @@ export default function StudentDetailPage() {
           onChange={(e) => {
             setProgramId(e.target.value);
             setClassId('');
+            setScheduleAcknowledged(false);
           }}
         />
         {loadClasses ? (
@@ -870,13 +884,42 @@ export default function StudentDetailPage() {
                 return { ...opt, label: isSuggested ? `⭐ ${opt.label}` : opt.label };
               })}
               value={classId}
-              onChange={(e) => setClassId(e.target.value)}
+              onChange={(e) => {
+                setClassId(e.target.value);
+                setScheduleAcknowledged(false);
+              }}
               disabled={!programId}
             />
+            {selectedClassForEnroll ? (
+              <div className="mt-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-base)]/40 px-3 py-2 text-xs text-[var(--text-secondary)]">
+                <p className="font-medium text-[var(--text-primary)]">Lịch lớp đã chọn</p>
+                <p className="mt-1">
+                  {scheduleDays(selectedClassForEnroll.scheduleDays)} · Ca{' '}
+                  {Number(selectedClassForEnroll.shift) === 1 ? 'sáng (1)' : 'chiều (2)'}
+                </p>
+              </div>
+            ) : null}
+            {classId ? (
+              <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  className="mt-1 size-4 shrink-0 rounded border-[var(--border-default)]"
+                  checked={scheduleAcknowledged}
+                  onChange={(ev) => setScheduleAcknowledged(ev.target.checked)}
+                />
+                <span>
+                  Phụ huynh đã được giải thích lịch cố định của lớp (không có lịch riêng từng em) và đồng ý theo lớp
+                  này — Q16.
+                </span>
+              </label>
+            ) : null}
             {unavailableDays.length > 0 ? (
               <p className="mt-1 text-xs text-[var(--text-muted)]">
                 {suggestionsQuery.isLoading ? 'Đang tải lớp gợi ý...' : 'Đã hiển thị đánh dấu lớp gợi ý phù hợp hơn'}
               </p>
+            ) : null}
+            {suggestionsQuery.data?.hint ? (
+              <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{suggestionsQuery.data.hint}</p>
             ) : null}
           </div>
         )}

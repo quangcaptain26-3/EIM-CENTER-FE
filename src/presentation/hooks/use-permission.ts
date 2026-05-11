@@ -31,6 +31,8 @@ export function usePermission() {
       canExportDebtReport: r === ROLES.ADMIN || r === ROLES.ACCOUNTANT,
       /** Thêm học viên, Tạo lớp, thao tác ghi danh học thuật — ADMIN + ACADEMIC */
       canManageAcademicEnrollment: r === ROLES.ADMIN || r === ROLES.ACADEMIC,
+      /** Q15: mở khóa makeup_blocked — chỉ ADMIN */
+      canResetMakeupBlocked: r === ROLES.ADMIN,
     };
   }, [role]);
 }

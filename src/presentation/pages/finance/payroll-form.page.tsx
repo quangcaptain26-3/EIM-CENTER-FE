@@ -274,7 +274,7 @@ export default function PayrollFormPage() {
                     <span className="tabular-nums font-medium text-[var(--text-primary)]">{formatVnd(preview.allowance)}</span>
                   </p>
                   <p className="text-xs leading-relaxed text-[var(--text-muted)]">
-                    Giá trị này sẽ được snapshot khi chốt — thay đổi sau chốt không ảnh hưởng bảng lương đã khóa.
+                    Giá trị này sẽ được snapshot khi chốt — thay đổi sau chốt không ảnh hưởng bảng lương đã khóa. Preview chỉ ước tính; khi chốt, BE đọc lại lương/buổi trên hồ sơ GV ngay trước khi ghi snapshot (Q22).
                   </p>
                 </div>
               </div>

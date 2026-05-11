@@ -6,6 +6,7 @@ import {
   dropEnrollment,
   pauseEnrollment,
   resumeEnrollment,
+  resetMakeupBlocked,
   startTrialEnrollment,
   transferClass,
 } from '@/infrastructure/services/students.api';
@@ -128,6 +129,19 @@ export function useTransferClass() {
     }) => transferClass(id, body),
     onSuccess: (_r, { studentId }) => {
       toast.success('Đã chuyển lớp');
+      invalidateStudentEnrollments(qc, studentId);
+    },
+    onError: mutationToastApiError,
+  });
+}
+
+export function useResetMakeupBlocked() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; studentId: string; reason: string }) =>
+      resetMakeupBlocked(id, { reason }),
+    onSuccess: (_r, { studentId }) => {
+      toast.success('Đã mở khóa học bù');
       invalidateStudentEnrollments(qc, studentId);
     },
     onError: mutationToastApiError,
