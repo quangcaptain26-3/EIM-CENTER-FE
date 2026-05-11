@@ -33,11 +33,11 @@ export function ClassAttendancePivot({ classId, classCode, matrix, isLoading }: 
 
   const handleExport = async () => {
     try {
-      const blob = await exportData('attendance', { classId });
+      const { blob, filename } = await exportData('attendance', { classId });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `DiemDanh_${classCode}.xlsx`;
+      a.download = filename ?? `DiemDanh_${classCode}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success('Đã tải file điểm danh');

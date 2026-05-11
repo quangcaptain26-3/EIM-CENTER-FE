@@ -160,7 +160,7 @@ export default function AuditLogPage() {
   const downloadExport = async () => {
     setExporting(true);
     try {
-      const blob = await exportAuditLogs({
+      const { blob } = await exportAuditLogs({
         domain: domain || undefined,
         actorCode: actorCode || undefined,
         entityCode: entityCode || undefined,

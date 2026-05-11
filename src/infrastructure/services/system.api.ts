@@ -62,12 +62,35 @@ export async function importData(
   return unwrapApiData<ImportResult>(res);
 }
 
-export async function exportData(type: string, params?: Record<string, unknown>): Promise<Blob> {
-  const res = await apiClient.get<Blob>(`/export/${type}`, {
+export interface ExportDownloadResult {
+  blob: Blob;
+  /** Lấy từ Content-Disposition khi BE gửi (ví dụ DiemDanh_EIM-LS-01_S1-24.xlsx). */
+  filename: string | null;
+}
+
+function parseFilenameFromContentDisposition(cd: string | undefined): string | null {
+  if (!cd) return null;
+  const star = /filename\*=UTF-8''([^;\s]+)/i.exec(cd);
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim());
+    } catch {
+      /* ignore */
+    }
+  }
+  const quoted = /filename="([^"]+)"/i.exec(cd);
+  if (quoted) return quoted[1];
+  return null;
+}
+
+export async function exportData(type: string, params?: Record<string, unknown>): Promise<ExportDownloadResult> {
+  const res = await apiClient.get(`/export/${type}`, {
     params: params ? compactParams(params) : undefined,
     responseType: 'blob',
   });
-  return res as unknown as Blob;
+  const blob = res.data as Blob;
+  const cd = res.headers['content-disposition'] as string | undefined;
+  return { blob, filename: parseFilenameFromContentDisposition(cd) };
 }
 
 export async function downloadTemplate(type: string): Promise<Blob> {
@@ -75,6 +98,6 @@ export async function downloadTemplate(type: string): Promise<Blob> {
   return res as unknown as Blob;
 }
 
-export async function exportAuditLogs(params?: Record<string, unknown>): Promise<Blob> {
+export async function exportAuditLogs(params?: Record<string, unknown>): Promise<ExportDownloadResult> {
   return exportData('audit-logs', params);
 }
