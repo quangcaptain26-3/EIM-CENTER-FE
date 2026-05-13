@@ -27,8 +27,7 @@ export function getAttendanceBlockReason(
   }
 
   if (role === ROLES.ADMIN) {
-    if (session.status === SESSION_STATUS.completed) return 'status';
-    if (session.status === SESSION_STATUS.pending) return null;
+    if (session.status === SESSION_STATUS.pending || session.status === SESSION_STATUS.completed) return null;
     return 'status';
   }
 

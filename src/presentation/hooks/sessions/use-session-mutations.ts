@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import {
   assignCover,
   cancelCover,
+  editAttendance,
   recordAttendance,
   reschedule,
 } from '@/infrastructure/services/sessions.api';
@@ -143,6 +144,33 @@ export function useRecordSessionAttendance() {
           q.queryKey[0] === 'students' &&
           (q.queryKey[1] === 'list' || q.queryKey[2] === 'enrollments'),
       });
+    },
+  });
+}
+
+export function useEditSessionAttendance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: { records: Array<{ enrollmentId: string; status: string; note?: string }>; editReason: string };
+      classId?: string;
+    }) => editAttendance(id, body),
+    onError: mutationToastApiError,
+    onSuccess: () => {
+      toast.success('Đã cập nhật điểm danh');
+    },
+    onSettled: (_d, _e, { id, classId }) => {
+      void qc.invalidateQueries({ queryKey: QUERY_KEYS.SESSIONS.detail(id) });
+      if (classId) {
+        void qc.invalidateQueries({ queryKey: QUERY_KEYS.CLASSES.sessions(classId) });
+        void qc.invalidateQueries({ queryKey: QUERY_KEYS.CLASSES.roster(classId) });
+        void qc.invalidateQueries({ queryKey: QUERY_KEYS.CLASSES.detail(classId) });
+        void qc.invalidateQueries({ queryKey: QUERY_KEYS.CLASSES.attendanceMatrix(classId) });
+      }
     },
   });
 }

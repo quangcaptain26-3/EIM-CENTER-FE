@@ -9,7 +9,8 @@ export function useAttendanceHistory(enrollmentId: string | undefined) {
     queryKey: QUERY_KEYS.ENROLLMENTS.attendance(enrollmentId ?? ''),
     queryFn: () => getAttendanceHistory(enrollmentId!),
     enabled: Boolean(enrollmentId),
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   return {
