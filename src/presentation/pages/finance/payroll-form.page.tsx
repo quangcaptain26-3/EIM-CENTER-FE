@@ -336,6 +336,9 @@ export default function PayrollFormPage() {
                 <p className="font-display text-2xl font-semibold text-brand-500">
                   = Tổng: {formatVnd(preview.totalSalary)}
                 </p>
+                <p className="mt-2 text-xs text-[var(--text-muted)]">
+                  Đây là lương gross (buổi tính lương + phụ cấp). Thuế TNCN và BHXH do kế toán xử lý theo quy định — không trừ trong màn hình này.
+                </p>
               </div>
 
               <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)]">
