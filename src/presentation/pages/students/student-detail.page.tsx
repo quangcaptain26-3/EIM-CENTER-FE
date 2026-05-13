@@ -42,6 +42,14 @@ function genderLabel(g: string | null | undefined): string {
   return g;
 }
 
+function attendanceCellLetter(status?: string): string {
+  if (status === ATTENDANCE_STATUS.present) return 'P';
+  if (status === ATTENDANCE_STATUS.late) return 'L';
+  if (status === ATTENDANCE_STATUS.absent_excused) return 'A';
+  if (status === ATTENDANCE_STATUS.absent_unexcused) return 'U';
+  return '';
+}
+
 export default function StudentDetailPage() {
   const { id: studentId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -154,6 +162,16 @@ export default function StudentDetailPage() {
     }
     return { p, l, a, u, total: filteredAttendance.length };
   }, [filteredAttendance]);
+  const attendancePivot = useMemo(() => {
+    const bySession = new Map<number, (typeof filteredAttendance)[number]>();
+    for (const row of filteredAttendance) {
+      if (row.sessionNo != null) bySession.set(row.sessionNo, row);
+    }
+    return Array.from({ length: 24 }, (_, i) => {
+      const sessionNo = i + 1;
+      return { sessionNo, row: bySession.get(sessionNo) };
+    });
+  }, [filteredAttendance]);
 
   const eligibleMakeupAttendances = useMemo(() => {
     return history
@@ -162,6 +180,10 @@ export default function StudentDetailPage() {
         id: h.id,
         label: `Buổi #${h.sessionNo ?? '—'} — ${h.sessionDate ?? '—'}`,
       }));
+  }, [history]);
+  const maxMakeupDate = useMemo(() => {
+    const row24 = history.find((h) => h.sessionNo === 24 && h.sessionDate);
+    return row24?.sessionDate ?? null;
   }, [history]);
 
   const canAddEnrollment = canAcademic;
@@ -205,6 +227,26 @@ export default function StudentDetailPage() {
   const financeHref = activeEnrollment
     ? RoutePaths.STUDENT_FINANCE.replace(':enrollmentId', activeEnrollment.id)
     : null;
+  const exportAttendanceHistory = () => {
+    const lines = ['Session,Date,Status,Note'];
+    for (const item of filteredAttendance) {
+      lines.push(
+        [
+          item.sessionNo ?? '',
+          item.sessionDate ?? '',
+          item.status ?? '',
+          (item.note ?? '').replace(/,/g, ';'),
+        ].join(','),
+      );
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance-history-${student.studentCode}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -465,6 +507,52 @@ export default function StudentDetailPage() {
                 <span className="text-amber-600 dark:text-amber-400">Muộn: {attSummary.l}</span>
                 <span className="text-blue-600 dark:text-blue-400">Vắng CP: {attSummary.a}</span>
                 <span className="text-red-600 dark:text-red-400">Vắng KP: {attSummary.u}</span>
+              </div>
+              <div className="flex justify-end">
+                <Button type="button" variant="secondary" size="sm" onClick={exportAttendanceHistory}>
+                  Export to Excel
+                </Button>
+              </div>
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-[var(--border-subtle)] dark:bg-[var(--bg-base)]">
+                <table className="min-w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-[var(--border-subtle)]">
+                      {attendancePivot.map((c) => (
+                        <th key={c.sessionNo} className="px-2 py-2 text-center text-[var(--text-muted)]">
+                          {c.sessionNo}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      {attendancePivot.map((c) => {
+                        const st = c.row?.status;
+                        const letter = attendanceCellLetter(st);
+                        const cls =
+                          st === ATTENDANCE_STATUS.present || st === ATTENDANCE_STATUS.late
+                            ? 'bg-emerald-500/20 text-emerald-300'
+                            : st === ATTENDANCE_STATUS.absent_excused
+                              ? 'bg-red-500/20 text-red-300'
+                              : st === ATTENDANCE_STATUS.absent_unexcused
+                                ? 'bg-amber-500/20 text-amber-300'
+                                : 'text-[var(--text-muted)]';
+                        return (
+                          <td key={c.sessionNo} className="px-2 py-2 text-center">
+                            <button
+                              type="button"
+                              className={cn('inline-flex min-w-[22px] items-center justify-center rounded px-1 py-0.5', cls)}
+                              onClick={() => c.row?.note && window.alert(c.row.note)}
+                              title={c.row?.note ?? ''}
+                            >
+                              {letter || ' '}
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  </tbody>
+                </table>
               </div>
 
               <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-[var(--border-subtle)] dark:bg-[var(--bg-base)]">
@@ -934,6 +1022,7 @@ export default function StudentDetailPage() {
         makeupBlocked={activeEnrollment?.makeupBlocked}
         makeupBlockedReason="Học bù bị khóa vì đã vắng không phép từ 3 lần trở lên"
         initialAttendanceId={makeupPrefillAttendanceId}
+        maxMakeupDate={maxMakeupDate}
         eligibleAttendances={eligibleMakeupAttendances}
         isSubmitting={createMakeup.isPending}
         onSubmit={async (body) => {

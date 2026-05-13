@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/vi';
 import { ChevronDown, ChevronRight, Download, Filter } from 'lucide-react';
+import { useQueries } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/shared/ui/button';
 import { FormInput } from '@/shared/ui/form/form-input';
@@ -10,6 +11,7 @@ import { Avatar } from '@/shared/ui/avatar';
 import { Badge } from '@/shared/ui/badge';
 import { useAuditLogsList } from '@/presentation/hooks/system/use-audit-logs';
 import { exportAuditLogs } from '@/infrastructure/services/system.api';
+import { getUser } from '@/infrastructure/services/users.api';
 import { type AuditLogRow } from '@/shared/types/audit-log.type';
 import { cn } from '@/shared/lib/cn';
 import { formatDateTimeUtc7 } from '@/shared/lib/date';
@@ -18,6 +20,51 @@ dayjs.extend(relativeTime);
 dayjs.locale('vi');
 
 const AUDIT_DOMAINS = ['AUTH', 'USER', 'CLASS', 'ENROLLMENT', 'ATTENDANCE', 'FINANCE', 'STAFF', 'SYSTEM', 'HTTP'] as const;
+const ATTENDANCE_ACTION_FILTERS = ['', 'ATTENDANCE:recorded', 'ATTENDANCE:edited'] as const;
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  user: 'Người dùng',
+  class: 'Lớp học',
+  session: 'Buổi học',
+  enrollment: 'Ghi danh',
+  student: 'Học viên',
+  receipt: 'Phiếu thu',
+  payroll: 'Bảng lương',
+};
+const ACTION_LABELS: Record<string, string> = {
+  'AUTH:login': 'Đăng nhập',
+  'AUTH:logout': 'Đăng xuất',
+  'AUTH:refresh': 'Làm mới phiên',
+  'USER:created': 'Tạo người dùng',
+  'USER:updated': 'Cập nhật người dùng',
+  'USER:deleted': 'Xóa người dùng',
+  'USER:salary_updated': 'Cập nhật lương',
+  'CLASS:created': 'Tạo lớp',
+  'CLASS:closed': 'Đóng lớp',
+  'CLASS:sessions_generated': 'Tạo lịch học',
+  'CLASS:teacher_replaced': 'Thay giáo viên chính',
+  'CLASS:cover_assigned': 'Phân công dạy thay',
+  'CLASS:cover_cancelled': 'Hủy dạy thay',
+  'CLASS:session_rescheduled': 'Dời lịch buổi học',
+  'ENROLLMENT:created': 'Tạo ghi danh',
+  'ENROLLMENT:activated': 'Kích hoạt ghi danh',
+  'ENROLLMENT:paused': 'Bảo lưu ghi danh',
+  'ENROLLMENT:resumed': 'Tiếp tục ghi danh',
+  'ENROLLMENT:dropped': 'Ngừng ghi danh',
+  'ENROLLMENT:completed': 'Hoàn thành ghi danh',
+  'ATTENDANCE:recorded': 'Ghi nhận điểm danh',
+  'ATTENDANCE:edited': 'Chỉnh sửa điểm danh',
+  'ATTENDANCE:makeup_created': 'Tạo buổi học bù',
+  'ATTENDANCE:makeup_completed': 'Hoàn thành học bù',
+  'FINANCE:receipt_created': 'Tạo phiếu thu',
+  'FINANCE:receipt_voided': 'Hủy phiếu thu',
+  'FINANCE:payroll_finalized': 'Chốt bảng lương',
+  'FINANCE:payroll_notes_updated': 'Cập nhật ghi chú lương',
+  'FINANCE:refund_request_created': 'Tạo yêu cầu hoàn phí',
+  'FINANCE:refund_approved': 'Duyệt hoàn phí',
+  'FINANCE:refund_rejected': 'Từ chối hoàn phí',
+  'SYSTEM:bulk_import': 'Nhập dữ liệu',
+  'SYSTEM:export': 'Xuất dữ liệu',
+};
 
 function diffKeys(oldV: Record<string, unknown> | null | undefined, newV: Record<string, unknown> | null | undefined) {
   const a = oldV ?? {};
@@ -31,11 +78,83 @@ function formatVal(v: unknown): string {
   return String(v);
 }
 
+function shortId(id?: string): string {
+  if (!id) return '';
+  return `${id.slice(0, 8)}…`;
+}
+
+function getEntityView(row: AuditLogRow): { primary: string; secondary?: string } {
+  const typeKey = String(row.entityType ?? '').toLowerCase();
+  const typeLabel = ENTITY_TYPE_LABELS[typeKey] ?? (row.entityType || 'Hệ thống');
+  if (row.entityCode) {
+    return {
+      primary: row.entityCode,
+      secondary: `${typeLabel}${row.entityId ? ` · ${shortId(row.entityId)}` : ''}`,
+    };
+  }
+  if (row.entityId) {
+    return {
+      primary: `${typeLabel} · ${shortId(row.entityId)}`,
+      secondary: row.entityType ? `Loại: ${typeLabel}` : undefined,
+    };
+  }
+  return { primary: typeLabel };
+}
+
+function getReadableDescription(row: AuditLogRow): string {
+  if (row.description?.trim()) return row.description.trim();
+
+  const actionLabel = ACTION_LABELS[row.action] ?? row.action.replace(':', ' · ');
+  const entity = getEntityView(row).primary;
+
+  if (row.action.startsWith('HTTP:')) {
+    const method = typeof row.metadata?.method === 'string' ? row.metadata.method : undefined;
+    const path = typeof row.metadata?.path === 'string' ? row.metadata.path : undefined;
+    const statusCode =
+      typeof row.metadata?.statusCode === 'number' || typeof row.metadata?.statusCode === 'string'
+        ? String(row.metadata.statusCode)
+        : undefined;
+    if (method && path) {
+      return `${method} ${path}${statusCode ? ` → ${statusCode}` : ''}`;
+    }
+  }
+
+  return `${actionLabel}${entity && entity !== 'Hệ thống' ? ` · ${entity}` : ''}`;
+}
+
 function AuditDiffPanel({ row }: { row: AuditLogRow }) {
   const oldV = row.oldValues ?? undefined;
   const newV = row.newValues ?? undefined;
   const metaV = row.metadata ?? undefined;
   const diffV = row.diff ?? undefined;
+
+  if (row.action === 'ATTENDANCE:recorded') {
+    const records = Array.isArray(metaV?.records) ? (metaV?.records as Array<Record<string, unknown>>) : [];
+    const present = records.filter((r) => r.status === 'present' || r.status === 'late').length;
+    const absent = records.filter((r) => r.status === 'absent_excused' || r.status === 'absent_unexcused').length;
+    return (
+      <div className="space-y-2 text-sm">
+        <p className="text-[var(--text-primary)]">GV: {String(metaV?.submittedBy ?? row.actorCode ?? '—')}</p>
+        <p className="text-[var(--text-secondary)]">Kết quả: {present} có mặt, {absent} vắng</p>
+      </div>
+    );
+  }
+  if (row.action === 'ATTENDANCE:edited') {
+    const diffRows = Array.isArray(metaV?.diff) ? (metaV?.diff as Array<Record<string, unknown>>) : [];
+    return (
+      <div className="space-y-2 text-sm">
+        <p className="text-[var(--text-primary)]">
+          Sửa bởi: {String((metaV?.editedBy as Record<string, unknown> | undefined)?.userCode ?? row.actorCode ?? '—')}
+        </p>
+        <p className="text-[var(--text-secondary)]">Lý do: {String(metaV?.editReason ?? '—')}</p>
+        {diffRows.map((d, idx) => (
+          <p key={idx} className="text-[var(--text-secondary)]">
+            {String(d.studentCode ?? 'Học sinh')}: {String(d.before ?? '—')} → {String(d.after ?? '—')}
+          </p>
+        ))}
+      </div>
+    );
+  }
 
   // Expand panel: ưu tiên hiển thị metadata/diff nếu có, còn nếu không có thì show old/new.
   if (!oldV && !newV && !metaV && !diffV) {
@@ -124,6 +243,7 @@ export default function AuditLogPage() {
   const limit = 20;
   const [domain, setDomain] = useState('');
   const [actorCode, setActorCode] = useState('');
+  const [action, setAction] = useState('');
   const [entityCode, setEntityCode] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -136,32 +256,62 @@ export default function AuditLogPage() {
       page,
       limit,
       domain: domain || undefined,
+      action: action || undefined,
       actorCode: actorCode || undefined,
       entityCode: entityCode || undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
     }),
-    [page, limit, domain, actorCode, entityCode, dateFrom, dateTo],
+    [page, limit, domain, action, actorCode, entityCode, dateFrom, dateTo],
   );
 
   const { rows, total, isLoading, refetch } = useAuditLogsList(params);
   const totalPages = Math.max(1, Math.ceil(total / limit));
+  const actorIdsNeedingResolve = useMemo(
+    () =>
+      Array.from(
+        new Set(rows.filter((r) => !r.actorName && r.actorId).map((r) => String(r.actorId))),
+      ),
+    [rows],
+  );
+  const actorQueries = useQueries({
+    queries: actorIdsNeedingResolve.map((actorId) => ({
+      queryKey: ['users', actorId],
+      queryFn: () => getUser(actorId),
+      staleTime: 60_000,
+      retry: false,
+    })),
+  });
+  const actorResolvedMap = useMemo(() => {
+    const m = new Map<string, { fullName?: string; userCode?: string }>();
+    actorIdsNeedingResolve.forEach((actorId, idx) => {
+      const data = actorQueries[idx]?.data;
+      if (!data) return;
+      m.set(actorId, {
+        fullName: data.fullName,
+        userCode: data.userCode,
+      });
+    });
+    return m;
+  }, [actorIdsNeedingResolve, actorQueries]);
 
   const activeFilterCount = useMemo(() => {
     let n = 0;
     if (domain.trim()) n += 1;
     if (actorCode.trim()) n += 1;
+    if (action.trim()) n += 1;
     if (entityCode.trim()) n += 1;
     if (dateFrom) n += 1;
     if (dateTo) n += 1;
     return n;
-  }, [domain, actorCode, entityCode, dateFrom, dateTo]);
+  }, [domain, action, actorCode, entityCode, dateFrom, dateTo]);
 
   const downloadExport = async () => {
     setExporting(true);
     try {
       const { blob } = await exportAuditLogs({
         domain: domain || undefined,
+        action: action || undefined,
         actorCode: actorCode || undefined,
         entityCode: entityCode || undefined,
         dateFrom: dateFrom || undefined,
@@ -197,6 +347,23 @@ export default function AuditLogPage() {
           {AUDIT_DOMAINS.map((d) => (
             <option key={d} value={d}>
               {d}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs text-[var(--text-muted)]">Action</label>
+        <select
+          className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-base)] px-3 py-2 text-sm text-[var(--text-primary)]"
+          value={action}
+          onChange={(e) => {
+            setAction(e.target.value);
+            setPage(1);
+          }}
+        >
+          {ATTENDANCE_ACTION_FILTERS.map((a) => (
+            <option key={a || 'all'} value={a}>
+              {a || 'Tất cả'}
             </option>
           ))}
         </select>
@@ -311,6 +478,12 @@ export default function AuditLogPage() {
               rows.map((r) => {
                 const open = expandedId === r.id;
                 const d = r.createdAt ? dayjs(r.createdAt) : null;
+                const resolvedActor = r.actorId ? actorResolvedMap.get(r.actorId) : undefined;
+                const actorPrimaryLabel =
+                  r.actorName ?? resolvedActor?.fullName ?? r.actorCode ?? resolvedActor?.userCode ?? r.actorId ?? '—';
+                const actorCodeLabel = r.actorCode ?? resolvedActor?.userCode;
+                const entityView = getEntityView(r);
+                const descriptionText = getReadableDescription(r);
                 return (
                   <Fragment key={r.id}>
                     <tr
@@ -337,12 +510,10 @@ export default function AuditLogPage() {
                       </td>
                       <td className="px-3 py-2 align-top">
                         <div className="flex items-center gap-2">
-                          <Avatar name={r.actorName ?? r.actorCode ?? r.actorId ?? '?'} size="sm" />
+                          <Avatar name={actorPrimaryLabel} size="sm" />
                           <div className="min-w-0">
-                            <p className="truncate text-sm text-[var(--text-primary)]">
-                              {r.actorName ?? r.actorCode ?? r.actorId ?? '—'}
-                            </p>
-                            {r.actorCode ? <p className="font-mono text-xs text-[var(--text-muted)]">{r.actorCode}</p> : null}
+                            <p className="truncate text-sm text-[var(--text-primary)]">{actorPrimaryLabel}</p>
+                            {actorCodeLabel ? <p className="font-mono text-xs text-[var(--text-muted)]">{actorCodeLabel}</p> : null}
                           </div>
                         </div>
                       </td>
@@ -352,13 +523,15 @@ export default function AuditLogPage() {
                         </Badge>
                       </td>
                       <td className="hidden px-3 py-2 align-top text-[var(--text-secondary)] sm:table-cell">
-                        {r.entityCode ?? r.entityType ?? '—'}{' '}
-                        {r.entityId && !r.entityCode ? (
-                          <span className="font-mono text-[var(--text-muted)]">· {r.entityId.slice(0, 8)}…</span>
-                        ) : null}
+                        <div className="min-w-0">
+                          <p className="truncate text-[var(--text-primary)]">{entityView.primary}</p>
+                          {entityView.secondary ? (
+                            <p className="truncate text-xs text-[var(--text-muted)]">{entityView.secondary}</p>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="hidden max-w-xs px-3 py-2 align-top text-[var(--text-secondary)] lg:table-cell">
-                        <span className="line-clamp-2">{r.description ?? '—'}</span>
+                        <span className="line-clamp-2">{descriptionText}</span>
                       </td>
                     </tr>
                     {open ? (

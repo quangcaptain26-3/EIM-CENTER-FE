@@ -100,9 +100,14 @@ export function AppBreadcrumb({ className }: { className?: string }) {
     }
 
     if (classId) {
+      const classLabel = classQ.isLoading
+        ? 'Đang tải…'
+        : classQ.isError
+          ? 'Không tìm thấy lớp'
+          : classDetail?.classCode?.trim() || `Lớp ${classId.slice(0, 8)}…`;
       out.push({ label: 'Lớp học', to: RoutePaths.CLASSES });
       out.push({
-        label: classDetail?.classCode ?? 'Đang tải…',
+        label: classLabel,
       });
       return out;
     }

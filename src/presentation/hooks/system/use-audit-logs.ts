@@ -7,6 +7,7 @@ export interface AuditLogsParams {
   page: number;
   limit: number;
   domain?: string;
+  action?: string;
   actorCode?: string;
   entityCode?: string;
   dateFrom?: string;
@@ -21,6 +22,7 @@ export function useAuditLogs(params: AuditLogsParams) {
     limit: params.limit,
   };
   if (params.domain?.trim()) apiParams.domain = params.domain.trim();
+  if (params.action?.trim()) apiParams.action = params.action.trim();
   if (params.actorCode?.trim()) apiParams.actorCode = params.actorCode.trim();
   if (params.entityCode?.trim()) apiParams.entityCode = params.entityCode.trim();
   if (params.dateFrom) apiParams.dateFrom = params.dateFrom;

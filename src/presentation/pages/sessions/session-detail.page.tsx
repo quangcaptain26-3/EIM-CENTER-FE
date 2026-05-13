@@ -1,13 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/shared/ui/button';
 import { useSessionDetail } from '@/presentation/hooks/sessions/use-sessions';
 import { useClassRoster } from '@/presentation/hooks/classes/use-classes';
-import { useRecordSessionAttendance } from '@/presentation/hooks/sessions/use-session-mutations';
+import { useEditSessionAttendance, useRecordSessionAttendance } from '@/presentation/hooks/sessions/use-session-mutations';
 import { AttendanceForm } from '@/presentation/components/classes/attendance-form';
 import { StatusBadge } from '@/presentation/components/common/status-badge';
 import { RoutePaths } from '@/app/router/route-paths';
 import { formatDate } from '@/shared/lib/date';
+import { Modal } from '@/shared/ui/modal';
 import { useAuth } from '@/presentation/hooks/auth/use-auth';
 import { ROLES } from '@/shared/constants/roles';
 import {
@@ -39,7 +40,10 @@ export default function SessionDetailPage() {
   const banner = useMemo(() => {
     if (blockReason === 'day')
       return attendanceDayBlockedTooltip(session?.scheduledDate);
-    if (blockReason === 'permission') return ATTENDANCE_PERMISSION_TOOLTIP;
+    if (blockReason === 'permission') {
+      if (role === ROLES.ACCOUNTANT) return 'Bạn chỉ có quyền xem điểm danh.';
+      return ATTENDANCE_PERMISSION_TOOLTIP;
+    }
     if (blockReason === 'status') {
       if (role === ROLES.ADMIN && session?.status === 'completed') {
         return 'Buổi đã hoàn tất điểm danh — Giám đốc chỉ xem audit; học vụ chỉnh sửa khi cần.';
@@ -78,6 +82,12 @@ export default function SessionDetailPage() {
   }, [session, roster]);
 
   const record = useRecordSessionAttendance();
+  const edit = useEditSessionAttendance();
+  const [editReason, setEditReason] = useState('');
+  const [attendanceLockedModal, setAttendanceLockedModal] = useState(false);
+  const isSubmitted = Boolean(session?.submittedAt);
+  const canEditSubmitted = Boolean(isSubmitted && (role === ROLES.ACADEMIC || role === ROLES.ADMIN));
+  const showInteractive = isSubmitted ? canEditSubmitted : canRecord;
 
   if (isLoading || !sessionId) {
     return <p className="text-sm text-[var(--text-muted)]">Đang tải…</p>;
@@ -162,26 +172,73 @@ export default function SessionDetailPage() {
           <AttendanceForm
             key={`${session.id}-${roster.length}`}
             initialRows={attendanceRows}
-            interactive={canRecord}
+            interactive={showInteractive}
             readOnlyReason={
-              blockReason === 'day'
+              isSubmitted && role === ROLES.TEACHER
+                ? 'Buổi đã được điểm danh, giáo viên chỉ có thể xem.'
+                : blockReason === 'day'
                 ? role === ROLES.TEACHER
                   ? 'Giáo viên chỉ điểm danh trong ngày học.'
                   : 'Ngoài ngày học — học vụ có thể chỉnh điểm danh; giám đốc chỉ khi buổi còn chờ.'
                 : undefined
             }
-            isSubmitting={record.isPending}
+            submitLabel={isSubmitted ? 'Lưu chỉnh sửa' : 'Hoàn tất điểm danh'}
+            editReasonRequired={isSubmitted}
+            editReasonValue={editReason}
+            onEditReasonChange={setEditReason}
+            confirmMessage={
+              isSubmitted
+                ? `Bạn đang sửa điểm danh buổi ${session.sessionNo ?? ''} lớp ${session.classCode ?? ''}. Hành động này sẽ được ghi lại. Xác nhận?`
+                : `Điểm danh buổi ${session.sessionNo ?? ''} lớp ${session.classCode ?? ''}: xác nhận lưu?`
+            }
+            isSubmitting={record.isPending || edit.isPending}
             onSubmit={async ({ records }) => {
-              await record.mutateAsync({
-                id: session.id,
-                classId: session.classId,
-                body: { records },
-              });
-              void refetch();
+              try {
+                const alreadySubmitted = Boolean(session.submittedAt);
+                if (alreadySubmitted) {
+                  const reason = editReason.trim();
+                  if (!reason) return;
+                  await edit.mutateAsync({
+                    id: session.id,
+                    classId: session.classId,
+                    body: { records, editReason: reason },
+                  });
+                  setEditReason('');
+                } else {
+                  await record.mutateAsync({
+                    id: session.id,
+                    classId: session.classId,
+                    body: { records },
+                  });
+                }
+                void refetch();
+              } catch (err: any) {
+                const code = err?.code ?? err?.response?.data?.code;
+                if (code === 'ATTENDANCE_ALREADY_SUBMITTED') {
+                  setAttendanceLockedModal(true);
+                  void refetch();
+                  return;
+                }
+              }
             }}
           />
         </div>
       )}
+      <Modal
+        isOpen={attendanceLockedModal}
+        onClose={() => setAttendanceLockedModal(false)}
+        title="Buổi học đã được điểm danh"
+        size="sm"
+        footer={
+          <Button type="button" onClick={() => setAttendanceLockedModal(false)}>
+            Đã hiểu
+          </Button>
+        }
+      >
+        <p className="text-sm text-[var(--text-secondary)]">
+          Giáo viên chỉ được điểm danh 1 lần. Liên hệ học vụ nếu cần chỉnh sửa.
+        </p>
+      </Modal>
     </div>
   );
 }

@@ -5,9 +5,9 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Button } from '@/shared/ui/button';
 import { DataTable } from '@/shared/ui/data-table';
 import { useMySessions } from '@/presentation/hooks/sessions/use-sessions';
-import { StatusBadge } from '@/presentation/components/common/status-badge';
+import { getAttendanceStatus } from '@/infrastructure/services/sessions.api';
 import { RoutePaths } from '@/app/router/route-paths';
-import { formatDate, isTodayUtc7, todayYmdUtc7 } from '@/shared/lib/date';
+import { formatDate, formatDateTime, isTodayUtc7, todayYmdUtc7 } from '@/shared/lib/date';
 import { SESSION_STATUS } from '@/shared/constants/statuses';
 import type { MySessionRow } from '@/shared/types/session.type';
 import { cn } from '@/shared/lib/cn';
@@ -168,7 +168,19 @@ export default function MySessionsPage() {
       {
         id: 'status',
         header: 'Trạng thái',
-        cell: ({ row }) => <StatusBadge domain="session" status={row.original.status} />,
+        cell: ({ row }) => {
+          const submitted = Boolean(row.original.submittedAt);
+          return (
+            <span
+              className={cn(
+                'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                submitted ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-500/15 text-slate-300',
+              )}
+            >
+              {submitted ? 'Đã điểm danh' : 'Chưa điểm danh'}
+            </span>
+          );
+        },
       },
       {
         id: 'action',
@@ -176,7 +188,8 @@ export default function MySessionsPage() {
         cell: ({ row }) => {
           const s = row.original;
           const canAttendance =
-            isTodayUtc7(s.scheduledDate) && s.status === SESSION_STATUS.pending;
+            isTodayUtc7(s.scheduledDate) && s.status === SESSION_STATUS.pending && !s.submittedAt;
+          const canViewOnly = Boolean(s.submittedAt);
           const dayBlocked = s.status === SESSION_STATUS.pending && !isTodayUtc7(s.scheduledDate);
           return (
             <div className="flex flex-wrap justify-end gap-2">
@@ -184,9 +197,33 @@ export default function MySessionsPage() {
                 <Button
                   type="button"
                   size="sm"
-                  onClick={() => navigate(RoutePaths.SESSION_DETAIL.replace(':sessionId', s.id))}
+                  onClick={async () => {
+                    try {
+                      const status = await getAttendanceStatus(s.id);
+                      if (status.locked) {
+                        window.alert(
+                          `Buổi ${s.classCode ?? s.className ?? ''} đã được điểm danh lúc ${status.submittedAt ? formatDateTime(status.submittedAt) : ''}. Bạn không thể điểm danh lại.`,
+                        );
+                      }
+                    } catch (error) {
+                      console.warn('Không kiểm tra được trạng thái điểm danh, mở chi tiết buổi học để xử lý.', {
+                        sessionId: s.id,
+                        error,
+                      });
+                    }
+                    navigate(RoutePaths.SESSION_DETAIL.replace(':sessionId', s.id));
+                  }}
                 >
                   Điểm danh
+                </Button>
+              ) : canViewOnly ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => navigate(RoutePaths.SESSION_DETAIL.replace(':sessionId', s.id))}
+                >
+                  Xem
                 </Button>
               ) : dayBlocked ? (
                 <Tooltip content={attendanceDayBlockedTooltip(s.scheduledDate)}>

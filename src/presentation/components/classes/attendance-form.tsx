@@ -69,6 +69,11 @@ export interface AttendanceFormProps {
   /** false = chỉ xem / không tương tác */
   interactive?: boolean;
   readOnlyReason?: string;
+  submitLabel?: string;
+  editReasonRequired?: boolean;
+  editReasonValue?: string;
+  onEditReasonChange?: (value: string) => void;
+  confirmMessage?: string;
   onSubmit: (payload: {
     records: { studentId: string; enrollmentId: string; status: string; note?: string }[];
   }) => void | Promise<void>;
@@ -79,6 +84,11 @@ export function AttendanceForm({
   isSubmitting,
   interactive = true,
   readOnlyReason,
+  submitLabel = 'Hoàn tất điểm danh',
+  editReasonRequired = false,
+  editReasonValue = '',
+  onEditReasonChange,
+  confirmMessage,
   onSubmit,
 }: AttendanceFormProps) {
   const [state, setState] = useState<Record<string, RowState>>(() => buildRowState(initialRows));
@@ -122,11 +132,26 @@ export function AttendanceForm({
   const allFilled = useMemo(() => {
     const selectableRows = initialRows.filter((r) => !isPausedEnrollment(r));
     if (selectableRows.length === 0) return false;
-    return selectableRows.every((r) => {
+    const rowsFilled = selectableRows.every((r) => {
       const st = state[rowKey(r)]?.status;
       return Boolean(st && st.length > 0);
     });
-  }, [initialRows, state]);
+    if (!rowsFilled) return false;
+    if (editReasonRequired) return Boolean(editReasonValue.trim());
+    return true;
+  }, [initialRows, state, editReasonRequired, editReasonValue]);
+  const submitBlockedReason = useMemo(() => {
+    if (selectableCount === 0) {
+      return 'Không có học viên đang học để điểm danh.';
+    }
+    if (summary.unselected > 0) {
+      return `Còn ${summary.unselected} học viên chưa chọn trạng thái điểm danh.`;
+    }
+    if (editReasonRequired && !editReasonValue.trim()) {
+      return 'Vui lòng nhập lý do chỉnh sửa trước khi lưu.';
+    }
+    return null;
+  }, [selectableCount, summary.unselected, editReasonRequired, editReasonValue]);
 
   const setRow = (r: SessionAttendanceRow, patch: Partial<RowState>) => {
     const k = rowKey(r);
@@ -137,18 +162,21 @@ export function AttendanceForm({
   };
 
   const submit = () => {
-    const records = initialRows.map((r) => {
-      const k = rowKey(r);
-      const sid = r.studentId ?? r.enrollmentId;
-      const st = state[k]?.status ?? '';
-      const note = state[k]?.note ?? '';
-      return {
-        studentId: sid,
-        enrollmentId: r.enrollmentId,
-        status: st,
-        note: note || undefined,
-      };
-    });
+    const records = initialRows
+      .filter((r) => !isPausedEnrollment(r))
+      .map((r) => {
+        const k = rowKey(r);
+        const sid = r.studentId ?? r.enrollmentId;
+        const st = state[k]?.status ?? '';
+        const note = state[k]?.note ?? '';
+        return {
+          studentId: sid,
+          enrollmentId: r.enrollmentId,
+          status: st,
+          note: note || undefined,
+        };
+      })
+      .filter((r) => Boolean(r.status));
     void onSubmit({ records });
   };
 
@@ -252,6 +280,20 @@ export function AttendanceForm({
       </ul>
       {interactive ? (
         <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/95 px-4 py-3 backdrop-blur">
+          {editReasonRequired ? (
+            <div className="w-full">
+              <label className="block text-xs text-[var(--text-muted)]">
+                Lý do chỉnh sửa <span className="text-red-400">*</span>
+                <textarea
+                  rows={2}
+                  value={editReasonValue}
+                  onChange={(e) => onEditReasonChange?.(e.target.value)}
+                  className="mt-1 w-full resize-none rounded-lg border border-[var(--border-default)] bg-[var(--bg-subtle)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-brand-500"
+                  placeholder="Nhập lý do chỉnh sửa điểm danh"
+                />
+              </label>
+            </div>
+          ) : null}
           <p className="text-sm text-[var(--text-secondary)]">
             <span className="font-medium text-emerald-300">P:{summary.p}</span> ·{' '}
             <span className="font-medium text-amber-300">L:{summary.l}</span> ·{' '}
@@ -259,9 +301,18 @@ export function AttendanceForm({
             <span className="font-medium text-red-300">U:{summary.u}</span> ·{' '}
             <span className="font-medium text-[var(--text-muted)]">Chưa:{summary.unselected}</span>
           </p>
-          <Button type="button" isLoading={isSubmitting} disabled={!allFilled} onClick={() => setConfirmOpen(true)}>
-            Hoàn tất điểm danh
+          <Button
+            type="button"
+            isLoading={isSubmitting}
+            disabled={!allFilled}
+            title={!allFilled ? submitBlockedReason ?? undefined : undefined}
+            onClick={() => setConfirmOpen(true)}
+          >
+            {submitLabel}
           </Button>
+          {!allFilled && submitBlockedReason ? (
+            <p className="w-full text-xs text-amber-300/95">{submitBlockedReason}</p>
+          ) : null}
         </div>
       ) : null}
       <ConfirmDialog
@@ -269,7 +320,10 @@ export function AttendanceForm({
         onClose={() => setConfirmOpen(false)}
         variant="warning"
         title="Xác nhận điểm danh"
-        message={`Điểm danh buổi học: ${summary.p + summary.l} có mặt, ${summary.a + summary.u} vắng. Xác nhận?`}
+        message={
+          confirmMessage
+          ?? `Điểm danh buổi học: ${summary.p + summary.l} có mặt, ${summary.a + summary.u} vắng. Xác nhận?`
+        }
         confirmLabel="Xác nhận"
         cancelLabel="Xem lại"
         loading={Boolean(isSubmitting)}

@@ -8,6 +8,7 @@ import { Modal } from '@/shared/ui/modal';
 import { Button } from '@/shared/ui/button';
 import { FormInput } from '@/shared/ui/form/form-input';
 import { FormSelect } from '@/shared/ui/form/form-select';
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { useParsedRooms } from '@/presentation/hooks/classes/use-classes';
 import { useUsers } from '@/presentation/hooks/system/use-users';
 import { ROLES } from '@/shared/constants/roles';
@@ -38,6 +39,7 @@ interface MakeupModalProps {
   eligibleAttendances: MakeupAttendanceOption[];
   /** Chọn sẵn buổi điểm danh (khi mở từ dòng lịch sử) */
   initialAttendanceId?: string | null;
+  maxMakeupDate?: string | null;
   onSubmit: (data: Record<string, unknown>) => void | Promise<void>;
   isSubmitting?: boolean;
 }
@@ -49,6 +51,7 @@ export function MakeupModal({
   makeupBlockedReason,
   eligibleAttendances,
   initialAttendanceId,
+  maxMakeupDate,
   onSubmit,
   isSubmitting = false,
 }: MakeupModalProps) {
@@ -61,6 +64,8 @@ export function MakeupModal({
   });
 
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<Record<string, unknown> | null>(null);
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
   if (isOpen !== prevIsOpen) {
     setPrevIsOpen(isOpen);
@@ -209,23 +214,16 @@ export function MakeupModal({
         id="makeup-session-form"
         onSubmit={handleSubmit(async (v) => {
           setSubmitError(null);
-          try {
-            await Promise.resolve(
-              onSubmit({
-                attendanceId: v.attendanceId,
-                makeupDate: v.makeupDate,
-                makeup_date: v.makeupDate,
-                shift: Number(v.shift) as 1 | 2,
-                roomId: v.roomId,
-                teacherId: v.teacherId,
-                note: v.note?.trim() || undefined,
-              }),
-            );
-          } catch (err: unknown) {
-            const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message?: string }).message) : 'Không tạo được buổi học bù (trùng phòng/GV hoặc lỗi khác).';
-            setSubmitError(msg);
-            toast.error(msg);
-          }
+          setPendingPayload({
+            attendanceId: v.attendanceId,
+            makeupDate: v.makeupDate,
+            makeup_date: v.makeupDate,
+            shift: Number(v.shift) as 1 | 2,
+            roomId: v.roomId,
+            teacherId: v.teacherId,
+            note: v.note?.trim() || undefined,
+          });
+          setConfirmOpen(true);
         })}
       >
         <FormSelect
@@ -239,6 +237,7 @@ export function MakeupModal({
           <FormInput
             label="Ngày học bù"
             type="date"
+            max={maxMakeupDate ?? undefined}
             {...register('makeupDate')}
             error={errors.makeupDate?.message}
           />
@@ -299,6 +298,25 @@ export function MakeupModal({
           </div>
         ) : null}
       </form>
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title="Xác nhận tạo buổi học bù"
+        message="Xác nhận tạo buổi học bù với thông tin đã chọn?"
+        confirmLabel="Tạo"
+        loading={isSubmitting}
+        onConfirm={async () => {
+          if (!pendingPayload) return;
+          setConfirmOpen(false);
+          try {
+            await Promise.resolve(onSubmit(pendingPayload));
+          } catch (err: unknown) {
+            const msg = err && typeof err === 'object' && 'message' in err ? String((err as { message?: string }).message) : 'Không tạo được buổi học bù (trùng phòng/GV hoặc lỗi khác).';
+            setSubmitError(msg);
+            toast.error(msg);
+          }
+        }}
+      />
     </Modal>
   );
 }
