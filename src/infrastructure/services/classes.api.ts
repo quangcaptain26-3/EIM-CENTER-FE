@@ -91,7 +91,17 @@ export interface ClassAttendanceMatrixPayload {
     studentName: string;
     status: string;
   }[];
-  sessions: { id: string; sessionNo: number; sessionDate: string; status: string; shift: number }[];
+  sessions: {
+    id: string;
+    sessionNo: number;
+    sessionDate: string;
+    status: string;
+    shift: number;
+    submittedAt?: string | null;
+    submittedByName?: string | null;
+    lastEditedAt?: string | null;
+    lastEditedByName?: string | null;
+  }[];
   cells: ClassAttendanceMatrixCell[];
 }
 

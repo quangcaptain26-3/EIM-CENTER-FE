@@ -22,6 +22,7 @@ export interface MySessionRow {
   shiftLabel?: string;
   roleType: 'main' | 'cover';
   status: string;
+  submittedAt?: string | null;
   /** Buổi chính đang có GV cover (status cover ≠ cancelled) — tên GV cover */
   coverTeacherName?: string | null;
 }
@@ -40,6 +41,7 @@ export interface SessionDetailPayload {
   id: string;
   classId: string;
   classCode?: string;
+  sessionNo?: number;
   scheduledDate: string;
   shiftLabel?: string;
   roomName?: string;
@@ -52,6 +54,10 @@ export interface SessionDetailPayload {
   coverStatus?: string | null;
   coverReason?: string | null;
   status: string;
+  submittedAt?: string | null;
+  submittedBy?: string | null;
+  lastEditedAt?: string | null;
+  lastEditedBy?: string | null;
   attendanceRows: SessionAttendanceRow[];
 }
 

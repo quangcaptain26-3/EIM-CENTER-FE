@@ -77,6 +77,47 @@ export async function recordAttendance(
   await apiClient.post(`/sessions/${sessionId}/attendance`, { records });
 }
 
+export async function editAttendance(
+  sessionId: string,
+  payload: { records: AttendanceRecord[]; editReason: string } | Record<string, unknown>,
+): Promise<void> {
+  const records = Array.isArray((payload as { records?: unknown[] }).records)
+    ? ((payload as { records: AttendanceRecord[] }).records ?? [])
+    : [];
+  const editReason = String((payload as { editReason?: string }).editReason ?? '');
+  await apiClient.patch(`/sessions/${sessionId}/attendance`, { records, editReason });
+}
+
+export async function getAttendanceStatus(sessionId: string): Promise<{
+  locked: boolean;
+  submittedAt?: string | null;
+  submittedBy?: string | null;
+  submittedByCode?: string | null;
+}> {
+  const res = await apiClient.get(`/sessions/${sessionId}/attendance-status`);
+  return unwrapApiData(res);
+}
+
+export async function getSessionAttendanceHistory(sessionId: string): Promise<
+  Array<{
+    id: string;
+    action: string;
+    actorCode?: string;
+    actorRole?: string;
+    metadata?: Record<string, unknown>;
+    description?: string;
+    createdAt?: string;
+  }>
+> {
+  const res = await apiClient.get(`/sessions/${sessionId}/attendance-history`);
+  const data = unwrapApiData<{ data?: unknown } | unknown[]>(res);
+  if (Array.isArray(data)) return data as any[];
+  if (data && typeof data === 'object' && Array.isArray((data as { data?: unknown[] }).data)) {
+    return (data as { data: any[] }).data;
+  }
+  return [];
+}
+
 /** GET /sessions/:id/conflict-check?date= — kiểm tra lịch khi đổi lịch buổi */
 export async function getSessionConflictCheck(sessionId: string, date: string): Promise<unknown> {
   const res = await apiClient.get(`/sessions/${sessionId}/conflict-check`, { params: { date } });

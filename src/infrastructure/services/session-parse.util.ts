@@ -36,6 +36,12 @@ function normalizeMySessionRow(r: Record<string, unknown>): MySessionRow {
     shiftLabel: r.shiftLabel != null ? String(r.shiftLabel) : r.shift_label != null ? String(r.shift_label) : undefined,
     roleType: r.roleType === 'cover' || r.role_type === 'cover' ? 'cover' : 'main',
     status: String(r.status ?? ''),
+    submittedAt:
+      r.submittedAt != null
+        ? String(r.submittedAt)
+        : r.submitted_at != null
+          ? String(r.submitted_at)
+          : null,
     coverTeacherName:
       coverName === null || coverName === undefined ? null : coverName === '' ? null : String(coverName),
   };
@@ -185,6 +191,12 @@ export function parseSessionDetail(raw: unknown): SessionDetailPayload | null {
     id,
     classId,
     classCode: session.classCode ? String(session.classCode) : undefined,
+    sessionNo:
+      session.sessionNo != null
+        ? Number(session.sessionNo)
+        : session.session_no != null
+          ? Number(session.session_no)
+          : undefined,
     scheduledDate,
     shiftLabel: session.shiftLabel ? String(session.shiftLabel) : undefined,
     roomName: session.roomName ? String(session.roomName) : undefined,
@@ -199,6 +211,30 @@ export function parseSessionDetail(raw: unknown): SessionDetailPayload | null {
     coverStatus,
     coverReason,
     status,
+    submittedAt:
+      session.submittedAt != null
+        ? String(session.submittedAt)
+        : session.submitted_at != null
+          ? String(session.submitted_at)
+          : null,
+    submittedBy:
+      session.submittedBy != null
+        ? String(session.submittedBy)
+        : session.submitted_by != null
+          ? String(session.submitted_by)
+          : null,
+    lastEditedAt:
+      session.lastEditedAt != null
+        ? String(session.lastEditedAt)
+        : session.last_edited_at != null
+          ? String(session.last_edited_at)
+          : null,
+    lastEditedBy:
+      session.lastEditedBy != null
+        ? String(session.lastEditedBy)
+        : session.last_edited_by != null
+          ? String(session.last_edited_by)
+          : null,
     attendanceRows,
   };
 }
