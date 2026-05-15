@@ -291,7 +291,8 @@ select {
   }
 
   .printable,
-  .payroll-print-root {
+  .payroll-print-root,
+  .finance-doc-root {
     border: 1px solid #e5e7eb !important;
     background: #fff !important;
     color: #18181b !important;

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 import { Button } from '@/shared/ui/button';
@@ -11,6 +12,8 @@ export interface ConfirmDialogProps {
   variant?: ConfirmDialogVariant;
   title: string;
   message: string;
+  /** Nội dung thêm dưới message (checkbox, ghi chú…) */
+  extraContent?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm: () => void | Promise<void>;
@@ -28,6 +31,7 @@ export function ConfirmDialog({
   variant = 'danger',
   title,
   message,
+  extraContent,
   confirmLabel = 'Xác nhận',
   cancelLabel = 'Hủy',
   onConfirm,
@@ -68,6 +72,9 @@ export function ConfirmDialog({
         </div>
         <p className="min-w-0 flex-1 whitespace-pre-line text-sm leading-relaxed text-[var(--text-secondary)]">{message}</p>
       </div>
+      {extraContent ? (
+        <div className="mt-4 border-t border-[var(--border-subtle)] pt-3 text-[var(--text-secondary)]">{extraContent}</div>
+      ) : null}
     </Modal>
   );
 }

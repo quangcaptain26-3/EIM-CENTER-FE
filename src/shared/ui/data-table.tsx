@@ -52,6 +52,8 @@ export interface DataTableProps<TData> {
   showPaginationSummary?: boolean;
   /** Ô nhảy nhanh tới trang (danh sách dài) */
   showJumpToPage?: boolean;
+  /** Bảng trong phiếu in / khung hẹp: bỏ min-width 640px để không tràn ngang. */
+  embedInDocument?: boolean;
 }
 
 export function DataTable<TData>({
@@ -68,6 +70,7 @@ export function DataTable<TData>({
   className,
   showPaginationSummary = true,
   showJumpToPage = true,
+  embedInDocument = false,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [jumpDraft, setJumpDraft] = useState('');
@@ -101,10 +104,24 @@ export function DataTable<TData>({
 
   const showEmpty = data.length === 0;
 
+  const showSummary = showPaginationSummary && !embedInDocument;
+
   return (
-    <div className={cn('w-full space-y-3', className)}>
-      <div className="overflow-x-auto rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] shadow-[var(--shadow-card)]">
-        <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+    <div className={cn('w-full min-w-0 space-y-3', className)}>
+      <div
+        className={cn(
+          'border border-[var(--border-default)] bg-[var(--bg-surface)]',
+          embedInDocument
+            ? 'overflow-hidden rounded-lg shadow-none'
+            : 'overflow-x-auto rounded-2xl shadow-[var(--shadow-card)]',
+        )}
+      >
+        <table
+          className={cn(
+            'w-full border-collapse text-left text-sm',
+            embedInDocument ? 'min-w-0 table-auto' : 'min-w-[640px]',
+          )}
+        >
           <thead>
             {table.getHeaderGroups().map((hg) => (
               <tr
@@ -172,7 +189,7 @@ export function DataTable<TData>({
         </table>
       </div>
 
-      {!showEmpty && showPaginationSummary && total > 0 ? (
+      {!showEmpty && showSummary && total > 0 ? (
         <div className="flex flex-col gap-2 text-sm text-[var(--text-secondary)] sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>

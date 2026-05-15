@@ -6,6 +6,14 @@ export function formatVnd(amount: number): string {
   }).format(amount);
 }
 
+/** Giá trị từ API (string/decimal) → VND làm tròn — tránh hiển thị số thô kiểu 700.0 */
+export function formatVndAmount(value: unknown): string {
+  if (value == null || value === '') return '—';
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return formatVnd(Math.round(n));
+}
+
 /** Hiển thị số với dấu chấm nghìn (VD: 1.000.000) — không kèm đơn vị */
 export function formatAmountDots(n: number): string {
   if (!Number.isFinite(n) || n === 0) return '';
