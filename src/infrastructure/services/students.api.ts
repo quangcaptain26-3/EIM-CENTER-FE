@@ -23,6 +23,8 @@ export interface StudentsListParams {
   level?: string;
   enrollmentStatus?: string;
   classId?: string;
+  /** Chỉ HV không có ghi danh trial/active/paused */
+  withoutActiveEnrollment?: boolean;
 }
 
 export async function getStudents(params?: StudentsListParams): Promise<PagedResponse<StudentResponse>> {
@@ -60,7 +62,15 @@ export interface CreateEnrollmentBody {
 export async function createEnrollment(
   data: CreateEnrollmentBody | Record<string, unknown>,
 ): Promise<EnrollmentResponse> {
-  const res = await apiClient.post('/enrollments', data);
+  const body =
+    data && typeof data === 'object'
+      ? {
+          ...data,
+          studentId: (data as Record<string, unknown>).studentId ?? (data as Record<string, unknown>).student_id,
+          classId: (data as Record<string, unknown>).classId ?? (data as Record<string, unknown>).class_id,
+        }
+      : data;
+  const res = await apiClient.post('/enrollments', body);
   return unwrapApiData<EnrollmentResponse>(res);
 }
 

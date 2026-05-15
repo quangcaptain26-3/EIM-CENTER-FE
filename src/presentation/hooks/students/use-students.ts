@@ -17,6 +17,8 @@ export interface StudentsListParams {
   level?: string;
   enrollmentStatus?: string;
   classId?: string;
+  withoutActiveEnrollment?: boolean;
+  isActive?: boolean;
 }
 
 const STALE_STUDENTS_MS = 30_000;
@@ -28,6 +30,8 @@ export function useStudents(params: StudentsListParams) {
   if (params.level?.trim()) apiParams.level = params.level.trim();
   if (params.enrollmentStatus?.trim()) apiParams.enrollmentStatus = params.enrollmentStatus.trim();
   if (params.classId?.trim()) apiParams.classId = params.classId.trim();
+  if (params.withoutActiveEnrollment) apiParams.withoutActiveEnrollment = true;
+  if (params.isActive !== undefined) apiParams.isActive = params.isActive;
 
   const q = useQuery({
     queryKey: QUERY_KEYS.STUDENTS.list(apiParams),
