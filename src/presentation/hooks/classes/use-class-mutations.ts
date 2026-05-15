@@ -65,13 +65,10 @@ function useReplaceTeacherMutation() {
 function useCloseClassMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => closeClass(id),
-    onSuccess: () => {
-      toast.success('Đã đóng lớp');
-    },
+    mutationFn: ({ id, force }: { id: string; force?: boolean }) => closeClass(id, force ? { force: true } : {}),
     onError: mutationToastApiError,
-    onSettled: (_d, _e, id) => {
-      void qc.invalidateQueries({ queryKey: QUERY_KEYS.CLASSES.detail(id) });
+    onSettled: (_d, _e, vars) => {
+      void qc.invalidateQueries({ queryKey: QUERY_KEYS.CLASSES.detail(vars.id) });
       void qc.invalidateQueries({ queryKey: ['classes', 'list'] });
     },
   });

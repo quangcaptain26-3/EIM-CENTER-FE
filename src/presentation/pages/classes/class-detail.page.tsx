@@ -1,8 +1,8 @@
-import { Fragment, type ReactNode, useMemo, useState } from 'react';
+import { Fragment, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
 import { FormSelect } from '@/shared/ui/form/form-select';
@@ -28,6 +28,7 @@ import { usePermission } from '@/presentation/hooks/use-permission';
 import { Tooltip } from '@/shared/ui/tooltip';
 import { programPillClass } from '@/presentation/components/classes/program-theme';
 import { cn } from '@/shared/lib/cn';
+import { pickUuid } from '@/shared/lib/uuid';
 import type { ClassDetail, RosterRow } from '@/shared/types/class.type';
 import { fmt } from '@/shared/lib/fmt';
 
@@ -77,13 +78,26 @@ const rosterColumnHelper = createColumnHelper<RosterRow>();
 export default function ClassDetailPage() {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
-  const { canManageAcademicEnrollment: canAddStudent, canReplaceMainTeacher } = usePermission();
+  const [searchParams] = useSearchParams();
+  const { canManageAcademicEnrollment: canAddStudent, canReplaceMainTeacher, canForceCloseClass } = usePermission();
   const canManageSchedule = canAddStudent;
 
   const [tab, setTab] = useState<TabId>('sessions');
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [closeConfirm, setCloseConfirm] = useState(false);
+  const [forceCloseAsAdmin, setForceCloseAsAdmin] = useState(false);
   const [generateSessionsOpen, setGenerateSessionsOpen] = useState(false);
+
+  useEffect(() => {
+    if (closeConfirm) setForceCloseAsAdmin(false);
+  }, [closeConfirm]);
+
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t === 'sessions' || t === 'roster' || t === 'attendance' || t === 'staff') {
+      setTab(t as TabId);
+    }
+  }, [searchParams]);
 
   const { classDetail, isLoading, refetch: refetchClass } = useClass(classId);
   const { roster, isLoading: rosterLoading } = useClassRoster(classId);
@@ -243,6 +257,10 @@ export default function ClassDetailPage() {
   const maxCap = c.maxCapacity ?? 12;
   const isClassFull = (c.enrollmentCount ?? 0) >= maxCap;
   const capacityTooltip = `Lớp đã đủ ${maxCap} học viên`;
+  const resolvedClassId = pickUuid(c.id, classId) || classId?.trim() || c.id?.trim() || '';
+  const enrollPath = resolvedClassId
+    ? RoutePaths.CLASS_ENROLL_STUDENT.replace(':classId', resolvedClassId)
+    : '';
   const pillCls = programPillClass(c.programName);
   const showPendingNoSessionsBanner =
     c.status === 'pending' && !sessionsLoading && sessions.length === 0;
@@ -294,13 +312,17 @@ export default function ClassDetailPage() {
                 <Tooltip content={capacityTooltip}>
                   <span className="inline-flex cursor-not-allowed">
                     <Button type="button" disabled>
-                      Thêm học viên
+                      Thêm học viên vào lớp
                     </Button>
                   </span>
                 </Tooltip>
               ) : (
-                <Button type="button" onClick={() => navigate(RoutePaths.STUDENT_NEW, { state: { classId } })}>
-                  Thêm học viên
+                <Button
+                  type="button"
+                  disabled={!enrollPath}
+                  onClick={() => enrollPath && navigate(enrollPath)}
+                >
+                  Thêm học viên vào lớp
                 </Button>
               )
             ) : null}
@@ -353,13 +375,17 @@ export default function ClassDetailPage() {
                 <Tooltip content={capacityTooltip}>
                   <span className="inline-flex cursor-not-allowed">
                     <Button type="button" disabled>
-                      Thêm học viên
+                      Thêm học viên vào lớp
                     </Button>
                   </span>
                 </Tooltip>
               ) : (
-                <Button type="button" onClick={() => navigate(RoutePaths.STUDENT_NEW, { state: { classId } })}>
-                  Thêm học viên
+                <Button
+                  type="button"
+                  disabled={!enrollPath}
+                  onClick={() => enrollPath && navigate(enrollPath)}
+                >
+                  Thêm học viên vào lớp
                 </Button>
               )}
             </div>
@@ -451,13 +477,40 @@ export default function ClassDetailPage() {
         open={closeConfirm}
         onClose={() => setCloseConfirm(false)}
         title="Đóng lớp"
-        message="Xác nhận đóng lớp này? Học viên đang học có thể bị ảnh hưởng."
+        message={
+          canForceCloseClass
+            ? 'Xác nhận đóng lớp này? Học viên đang học có thể bị ảnh hưởng.\n\nNếu lớp còn buổi chưa hoàn thành (pending), mặc định hệ thống sẽ chặn — chỉ khi bạn tick tùy chọn bên dưới (ADMIN) mới gửi lệnh đóng bắt buộc.'
+            : 'Xác nhận đóng lớp này? Học viên đang học có thể bị ảnh hưởng.\n\nLưu ý: không đóng được nếu còn buổi học pending — cần ADMIN để bỏ qua kiểm tra đó.'
+        }
+        extraContent={
+          canForceCloseClass ? (
+            <label className="flex cursor-pointer items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1 rounded border-[var(--border-default)]"
+                checked={forceCloseAsAdmin}
+                onChange={(e) => setForceCloseAsAdmin(e.target.checked)}
+              />
+              <span>
+                Đóng bắt buộc dù còn buổi pending (chỉ ADMIN). Thao tác được ghi audit; chỉ dùng khi thật sự cần
+                (giải tán lớp, dữ liệu thử…).
+              </span>
+            </label>
+          ) : undefined
+        }
         confirmLabel="Đóng lớp"
         loading={closeM.isPending}
         onConfirm={async () => {
           if (!classId) return;
-          await closeM.mutateAsync(classId);
-          toast.success('Đã đóng lớp');
+          await closeM.mutateAsync({
+            id: classId,
+            force: canForceCloseClass && forceCloseAsAdmin,
+          });
+          toast.success(
+            canForceCloseClass && forceCloseAsAdmin
+              ? 'Đã đóng lớp (ADMIN — bỏ qua kiểm tra buổi pending).'
+              : 'Đã đóng lớp',
+          );
           setCloseConfirm(false);
           void refetchClass();
         }}

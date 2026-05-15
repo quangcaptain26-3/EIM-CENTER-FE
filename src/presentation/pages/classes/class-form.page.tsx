@@ -350,6 +350,10 @@ export function ClassFormPage() {
 
           <section>
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Phòng học</h2>
+            <p className="mb-2 text-xs text-[var(--text-muted)]">
+              Phòng bị mờ là phòng đã có lớp active cùng ca và trùng ít nhất một thứ trong tuần với hai ngày bạn chọn. Nhóm theo
+              tầng chỉ để lọc nhanh theo mã phòng, không phải quy tắc trùng lịch. Giáo viên được kiểm tra trùng khi bấm Tạo lớp.
+            </p>
             <Input
               placeholder="Tìm mã phòng, tên phòng…"
               value={roomSearch}

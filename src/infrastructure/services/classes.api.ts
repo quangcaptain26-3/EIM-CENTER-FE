@@ -124,8 +124,12 @@ export async function replaceTeacher(
   return unwrapApiData<ClassResponse>(res);
 }
 
-export async function closeClass(classId: string): Promise<ClassResponse> {
-  const res = await apiClient.post(`/classes/${classId}/close`);
+export async function closeClass(
+  classId: string,
+  options?: { force?: boolean },
+): Promise<ClassResponse> {
+  const body = options?.force ? { force: true } : {};
+  const res = await apiClient.post(`/classes/${classId}/close`, body);
   return unwrapApiData<ClassResponse>(res);
 }
 
