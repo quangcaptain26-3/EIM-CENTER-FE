@@ -17,6 +17,7 @@ const STATIC: Record<string, string> = {
   [RoutePaths.USER_CREATE]: 'Tạo mới',
   [RoutePaths.CLASSES]: 'Lớp học',
   [RoutePaths.CLASS_NEW]: 'Tạo lớp',
+  enroll: 'Ghi danh học viên',
   [RoutePaths.STUDENTS]: 'Học viên',
   [RoutePaths.STUDENT_NEW]: 'Thêm học viên',
   [RoutePaths.PAUSE_REQUESTS]: 'Bảo lưu',
@@ -48,11 +49,20 @@ export function AppBreadcrumb({ className }: { className?: string }) {
   const location = useLocation();
   const pathname = normalizePath(location.pathname);
 
-  const classId = useMemo(() => {
+  /** Chi tiết lớp: /classes/:id */
+  const classDetailId = useMemo(() => {
     const m = pathname.match(/^\/classes\/([^/]+)$/);
     if (!m?.[1] || m[1] === 'create') return null;
     return m[1];
   }, [pathname]);
+
+  /** Ghi danh vào lớp: /classes/:id/enroll */
+  const classEnrollId = useMemo(() => {
+    const m = pathname.match(/^\/classes\/([^/]+)\/enroll$/);
+    return m?.[1] ?? null;
+  }, [pathname]);
+
+  const classIdForFetch = classEnrollId ?? classDetailId;
 
   const studentId = useMemo(() => {
     const m = pathname.match(/^\/students\/([^/]+)$/);
@@ -72,9 +82,9 @@ export function AppBreadcrumb({ className }: { className?: string }) {
   }, [pathname]);
 
   const classQ = useQuery({
-    queryKey: QUERY_KEYS.CLASSES.detail(classId ?? ''),
-    queryFn: () => getClass(classId!),
-    enabled: Boolean(classId),
+    queryKey: QUERY_KEYS.CLASSES.detail(classIdForFetch ?? ''),
+    queryFn: () => getClass(classIdForFetch!),
+    enabled: Boolean(classIdForFetch),
   });
   const classDetail = classQ.data ? parseClassDetail(classQ.data) : null;
 
@@ -99,12 +109,27 @@ export function AppBreadcrumb({ className }: { className?: string }) {
       return [{ label: 'Dashboard' }];
     }
 
-    if (classId) {
+    if (classEnrollId) {
       const classLabel = classQ.isLoading
         ? 'Đang tải…'
         : classQ.isError
           ? 'Không tìm thấy lớp'
-          : classDetail?.classCode?.trim() || `Lớp ${classId.slice(0, 8)}…`;
+          : classDetail?.classCode?.trim() || `Lớp ${classEnrollId.slice(0, 8)}…`;
+      out.push({ label: 'Lớp học', to: RoutePaths.CLASSES });
+      out.push({
+        label: classLabel,
+        to: RoutePaths.CLASS_DETAIL.replace(':classId', classEnrollId),
+      });
+      out.push({ label: STATIC.enroll });
+      return out;
+    }
+
+    if (classDetailId) {
+      const classLabel = classQ.isLoading
+        ? 'Đang tải…'
+        : classQ.isError
+          ? 'Không tìm thấy lớp'
+          : classDetail?.classCode?.trim() || `Lớp ${classDetailId.slice(0, 8)}…`;
       out.push({ label: 'Lớp học', to: RoutePaths.CLASSES });
       out.push({
         label: classLabel,
@@ -156,7 +181,8 @@ export function AppBreadcrumb({ className }: { className?: string }) {
     return out.length ? out : [{ label: 'Trang' }];
   }, [
     pathname,
-    classId,
+    classDetailId,
+    classEnrollId,
     studentId,
     userId,
     sessionId,
@@ -164,6 +190,8 @@ export function AppBreadcrumb({ className }: { className?: string }) {
     student?.studentCode,
     student?.fullName,
     staffUser?.fullName,
+    classQ.isLoading,
+    classQ.isError,
   ]);
 
   return (

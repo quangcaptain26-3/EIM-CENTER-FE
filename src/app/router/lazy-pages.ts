@@ -29,6 +29,7 @@ export const LazyClassFormPage = lazy(() =>
   import('@/presentation/pages/classes/class-form.page').then((m) => ({ default: m.ClassFormPage })),
 );
 export const LazyClassDetailPage = lazy(() => import('@/presentation/pages/classes/class-detail.page'));
+export const LazyClassEnrollStudentPage = lazy(() => import('@/presentation/pages/classes/class-enroll-student.page'));
 
 export const LazySessionDetailPage = lazy(() => import('@/presentation/pages/sessions/session-detail.page'));
 export const LazySessionListPage = lazy(() => import('@/presentation/pages/sessions/session-list.page'));

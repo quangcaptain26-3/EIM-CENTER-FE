@@ -28,6 +28,8 @@ export const RoutePaths = {
   CLASSES: '/classes',
   CLASS_NEW: '/classes/new',
   CLASS_DETAIL: '/classes/:classId',
+  /** Ghi danh học viên có sẵn vào lớp (tách khỏi tạo HV mới) */
+  CLASS_ENROLL_STUDENT: '/classes/:classId/enroll',
   CLASS_EDIT: '/classes/:classId/edit',
   SESSIONS: '/sessions',
   SESSIONS_LIST: '/classes/:classId/sessions',

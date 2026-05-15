@@ -162,6 +162,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: RoutePaths.CLASS_ENROLL_STUDENT,
+        element: (
+          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+            <P.LazyClassEnrollStudentPage />
+          </RoleGuard>
+        ),
+      },
+      {
         path: RoutePaths.CLASS_DETAIL,
         element: (
           <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>

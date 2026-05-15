@@ -174,6 +174,15 @@ export const appRouteMetaList: AppRouteMeta[] = [
         showInBreadcrumb: true,
         children: [
           {
+            key: 'classes-enroll-student',
+            label: 'Ghi danh học viên',
+            path: RoutePaths.CLASS_ENROLL_STUDENT,
+            parentKey: 'classes-detail',
+            allowedRoles: [AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC],
+            showInSidebar: false,
+            showInBreadcrumb: true,
+          },
+          {
             key: 'sessions-list',
             label: 'Danh sách buổi học',
             path: RoutePaths.SESSIONS_LIST,
