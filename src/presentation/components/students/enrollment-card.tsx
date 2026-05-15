@@ -97,7 +97,8 @@ function transferClassGuard(e: EnrollmentCardModel): { blocked: boolean; tooltip
 }
 
 export function EnrollmentCard({ enrollment: e, studentId, studentFullName }: EnrollmentCardProps) {
-  const { canManageAcademicEnrollment: canMutate, canResetMakeupBlocked } = usePermission();
+  const { canManageAcademicEnrollment: canMutate, canResetMakeupBlocked, canCreateReceipt } =
+    usePermission();
   const { total, done, pct } = sessionsProgress(e);
   const [transferOpen, setTransferOpen] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false);
@@ -261,8 +262,19 @@ export function EnrollmentCard({ enrollment: e, studentId, studentFullName }: En
 
       {canMutate && !readonly && (
         <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-4">
-          {(e.status === ENROLLMENT_STATUS.pending || e.status === ENROLLMENT_STATUS.trial) && (
+          {(e.status === ENROLLMENT_STATUS.pending ||
+            e.status === ENROLLMENT_STATUS.reserved ||
+            e.status === ENROLLMENT_STATUS.trial) && (
             <>
+              {canCreateReceipt ? (
+                <Button type="button" size="sm" variant="secondary" asChild>
+                  <Link
+                    to={`${RoutePaths.RECEIPT_NEW}?studentId=${encodeURIComponent(studentId)}&enrollmentId=${encodeURIComponent(e.id)}`}
+                  >
+                    Tạo phiếu thu
+                  </Link>
+                </Button>
+              ) : null}
               {activateBlocked ? (
                 <Tooltip content={activateTooltip}>
                   <span className="inline-flex cursor-not-allowed">

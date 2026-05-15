@@ -25,7 +25,10 @@ import { QUERY_KEYS } from '@/infrastructure/query/query-keys';
 import { getStudentEnrollments } from '@/infrastructure/services/students.api';
 import { parseEnrollmentsList } from '@/infrastructure/services/student-parse.util';
 
+/** Ghi danh mới vào lớp thường là pending/reserved — phải cho thu học phí trước khi kích hoạt. */
 const ALLOWED_ENROLL = [
+  ENROLLMENT_STATUS.pending,
+  ENROLLMENT_STATUS.reserved,
   ENROLLMENT_STATUS.trial,
   ENROLLMENT_STATUS.active,
   ENROLLMENT_STATUS.paused,
@@ -200,7 +203,7 @@ export default function ReceiptFormPage() {
       if (
         v.amount > 0 &&
         prevStatus != null &&
-        ['pending', 'trial'].includes(prevStatus) &&
+        ['pending', 'reserved', 'trial'].includes(prevStatus) &&
         nowEn?.status === ENROLLMENT_STATUS.active
       ) {
         toast.info('Học viên đã được kích hoạt');
@@ -290,7 +293,9 @@ export default function ReceiptFormPage() {
               {loadEnr ? (
                 <p className="text-sm text-[var(--text-muted)]">Đang tải ghi danh…</p>
               ) : filteredEnrollments.length === 0 ? (
-                <p className="text-sm text-amber-400/90">Không có ghi danh phù hợp để tạo phiếu thu.</p>
+                <p className="text-sm text-amber-400/90">
+                  Học viên chưa có ghi danh nào (pending / trial / active…). Tạo ghi danh vào lớp trước, rồi quay lại đây.
+                </p>
               ) : (
                 <ul className="space-y-2">
                   {filteredEnrollments.map((e: EnrollmentCardModel) => {
