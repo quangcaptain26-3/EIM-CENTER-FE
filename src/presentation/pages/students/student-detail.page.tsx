@@ -30,6 +30,7 @@ import { cn } from '@/shared/lib/cn';
 import { Tooltip } from '@/shared/ui/tooltip';
 import { getScheduleConflictCheck } from '@/infrastructure/services/students.api';
 import { scheduleDays } from '@/shared/lib/date';
+import { isUuid } from '@/shared/lib/uuid';
 
 type TabKey = 'enroll' | 'attendance' | 'makeup' | 'finance';
 type AttFilter = 'all' | 'present' | 'absent';
@@ -101,7 +102,9 @@ export default function StudentDetailPage() {
   const classOptions = useMemo(
     () => [
       { value: '', label: programId ? 'Chọn lớp' : 'Chọn chương trình trước' },
-      ...classes.map((c) => ({ value: c.id, label: `${c.classCode} · ${c.programName ?? ''}` })),
+      ...classes
+        .filter((c) => isUuid(c.id))
+        .map((c) => ({ value: c.id, label: `${c.classCode} · ${c.programName ?? ''}` })),
     ],
     [classes, programId],
   );
@@ -880,11 +883,11 @@ export default function StudentDetailPage() {
             <Button
               type="button"
               isLoading={createEnr.isPending}
-              disabled={!classId || !studentId || !scheduleAcknowledged}
+              disabled={!isUuid(classId) || !studentId || !scheduleAcknowledged}
               onClick={async () => {
                 await createEnr.mutateAsync({
                   studentId,
-                  classId,
+                  classId: classId.trim(),
                   status: enrollmentStatus,
                   ...(enrollmentStatus === 'reserved' && reservationFee.trim()
                     ? { reservationFee: Number(reservationFee) }
