@@ -16,6 +16,8 @@ function unwrapBody(raw: unknown): unknown {
 
 function enrichClassListItem(row: ClassListItem): ClassListItem {
   const r = row as ClassListItem & {
+    class_id?: string;
+    program_id?: string;
     schedule_days?: number[];
     scheduleDays?: number[];
     shift?: number | string;
@@ -23,7 +25,13 @@ function enrichClassListItem(row: ClassListItem): ClassListItem {
   };
   const days = r.scheduleDays ?? r.schedule_days;
   const label = r.scheduleLabel?.trim();
-  let out: ClassListItem = { ...row };
+  const id = String(row.id ?? r.class_id ?? '').trim();
+  const programIdRaw = row.programId ?? r.program_id;
+  let out: ClassListItem = {
+    ...row,
+    id,
+    programId: programIdRaw != null && String(programIdRaw).trim() !== '' ? String(programIdRaw) : row.programId,
+  };
 
   if (!label && Array.isArray(days) && days.length > 0) {
     out = { ...out, scheduleLabel: scheduleDays(days) };
@@ -85,7 +93,17 @@ export function parseClassDetail(raw: unknown): ClassDetail | null {
   const enriched = enrichClassListItem(merged);
   const rc = enriched.roomCode?.trim();
   const rn = enriched.roomName?.trim();
-  return { ...enriched, roomName: rn || rc || undefined };
+  const id = String(base.id ?? base.class_id ?? enriched.id ?? '').trim();
+  const programIdRaw = base.programId ?? base.program_id ?? enriched.programId;
+  return {
+    ...enriched,
+    id,
+    programId:
+      programIdRaw != null && String(programIdRaw).trim() !== ''
+        ? String(programIdRaw)
+        : enriched.programId,
+    roomName: rn || rc || undefined,
+  };
 }
 
 function normalizeRosterRow(row: Record<string, unknown>): RosterRow {
