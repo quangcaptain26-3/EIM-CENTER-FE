@@ -14,6 +14,8 @@ export interface PayrollPreviewTableRow extends PayrollSessionPreviewRow {
 interface PayrollPreviewTableProps {
   rows: PayrollPreviewTableRow[];
   className?: string;
+  /** Trang chi tiết bảng lương / in: bảng không ép min-width 640px, ẩn dòng phân trang dư. */
+  embedInDocument?: boolean;
 }
 
 function KindBadge({ kind }: { kind: SessionRowKind }) {
@@ -32,7 +34,7 @@ function KindBadge({ kind }: { kind: SessionRowKind }) {
 
 const colHelper = createColumnHelper<PayrollPreviewTableRow>();
 
-export function PayrollPreviewTable({ rows, className = '' }: PayrollPreviewTableProps) {
+export function PayrollPreviewTable({ rows, className = '', embedInDocument = false }: PayrollPreviewTableProps) {
   const columns = useMemo(
     () => [
       colHelper.accessor((r) => r.sessionDate, {
@@ -61,7 +63,7 @@ export function PayrollPreviewTable({ rows, className = '' }: PayrollPreviewTabl
   const pageSize = Math.max(rows.length, 1);
 
   return (
-    <div className={cn('overflow-x-auto', className)}>
+    <div className={cn('w-full min-w-0', className)}>
       <DataTable
         columns={columns}
         data={rows}
@@ -72,6 +74,7 @@ export function PayrollPreviewTable({ rows, className = '' }: PayrollPreviewTabl
         getRowId={(r) => `${r.sessionId}-${r.kind}`}
         emptyMessage="Không có buổi trong kỳ"
         className="border-0"
+        embedInDocument={embedInDocument}
       />
     </div>
   );
