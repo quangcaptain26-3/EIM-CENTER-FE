@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,6 +36,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+/** Value khớp DB students.gender; label tiếng Việt */
 const GENDER_OPTIONS = [
   { value: '', label: '—' },
   { value: 'male', label: 'Nam' },
@@ -47,6 +48,8 @@ export default function StudentFormPage() {
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get('returnTo')?.trim() ?? '';
   const { student, isLoading } = useStudent(isEdit ? id : undefined);
   const createM = useCreateStudent();
   const updateM = useUpdateStudent();
@@ -99,6 +102,25 @@ export default function StudentFormPage() {
       parentZalo: values.parentZalo?.trim() || undefined,
     };
 
+    const navigateAfterCreate = (newId: string) => {
+      if (
+        returnTo &&
+        returnTo.startsWith('/') &&
+        !returnTo.startsWith('//') &&
+        !returnTo.includes('://')
+      ) {
+        try {
+          const u = new URL(returnTo, window.location.origin);
+          u.searchParams.set('studentId', newId);
+          navigate(`${u.pathname}${u.search}${u.hash}`);
+          return;
+        } catch {
+          /* fall through */
+        }
+      }
+      navigate(RoutePaths.STUDENT_DETAIL.replace(':id', newId));
+    };
+
     try {
       if (isEdit && id) {
         await updateM.mutateAsync({ id, data: payload });
@@ -109,7 +131,7 @@ export default function StudentFormPage() {
       const res = await createM.mutateAsync(payload);
       const newId = parseCreatedId(res as unknown);
       if (newId) {
-        navigate(RoutePaths.STUDENT_DETAIL.replace(':id', newId));
+        navigateAfterCreate(newId);
       } else {
         navigate(RoutePaths.STUDENTS);
       }
