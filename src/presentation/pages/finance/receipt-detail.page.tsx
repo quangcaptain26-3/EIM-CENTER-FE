@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/shared/ui/button';
 import { ReceiptCard } from '@/presentation/components/finance/receipt-card';
+import { FinanceDocActions, FinanceDocPrintStyle, FinanceDocRoot } from '@/presentation/components/finance/finance-document';
 import { useReceipt, useVoidReceipt } from '@/presentation/hooks/finance/use-receipts';
 import { RoutePaths } from '@/app/router/route-paths';
 import { usePermission } from '@/presentation/hooks/use-permission';
@@ -20,9 +21,7 @@ export default function ReceiptDetailPage() {
 
   const canVoid = receipt && receipt.amount > 0 && !receipt.voidedByReceiptId && canCreateReceipt;
 
-  const voidMessage = receipt
-    ? `Tạo phiếu âm bù trừ ${formatVnd(-receipt.amount)}?`
-    : '';
+  const voidMessage = receipt ? `Tạo phiếu âm bù trừ ${formatVnd(-receipt.amount)}?` : '';
 
   const onVoidConfirm = async () => {
     if (!receipt) return;
@@ -47,12 +46,13 @@ export default function ReceiptDetailPage() {
   }
 
   return (
-    <div className="p-4 md:p-6">
-      <div className="mb-4 flex flex-wrap gap-2 print:hidden">
+    <FinanceDocRoot>
+      <FinanceDocPrintStyle />
+      <FinanceDocActions className="mb-4 gap-2">
         <Button type="button" variant="secondary" onClick={() => navigate(-1)}>
           ← Quay lại
         </Button>
-        <Button type="button" onClick={print}>
+        <Button type="button" variant="secondary" onClick={print}>
           In phiếu
         </Button>
         {canVoid ? (
@@ -60,8 +60,8 @@ export default function ReceiptDetailPage() {
             Hủy phiếu
           </Button>
         ) : null}
-      </div>
-      <ReceiptCard receipt={receipt} />
+      </FinanceDocActions>
+      <ReceiptCard receipt={receipt} className="shadow-none" />
 
       <ConfirmDialog
         open={voidOpen}
@@ -74,6 +74,6 @@ export default function ReceiptDetailPage() {
         loading={voidM.isPending}
         onConfirm={onVoidConfirm}
       />
-    </div>
+    </FinanceDocRoot>
   );
 }
