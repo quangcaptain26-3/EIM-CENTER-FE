@@ -51,6 +51,7 @@ export function DropModal({
     if (isOpen) reset({ reasonType: '', detail: '', confirmName: '' });
   }, [isOpen, reset]);
 
+  const reasonType = watch('reasonType');
   const confirmName = watch('confirmName');
   const nameOk =
     studentFullName.trim().length > 0 &&
@@ -113,6 +114,13 @@ export function DropModal({
           {...register('reasonType')}
           error={errors.reasonType?.message}
         />
+        {reasonType === 'subjective_class_transfer' ? (
+          <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200/95">
+            Sau khi xác nhận, tạo <strong>ghi danh mới</strong> cho học viên ở lớp đích (cùng chương
+            trình). Nếu còn trong 3 buổi đầu và ghi danh đang <strong>active</strong>, ưu tiên nút{' '}
+            <strong>↔ Chuyển lớp</strong> để giữ nguyên ghi danh và học phí.
+          </p>
+        ) : null}
         <div className="mt-3">
           <FormInput
             label="Chi tiết lý do"
