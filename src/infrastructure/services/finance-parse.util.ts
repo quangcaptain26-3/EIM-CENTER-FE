@@ -105,6 +105,20 @@ export function parseDebtSummary(raw: unknown): DebtSummary | null {
   const o = inner as Record<string, unknown>;
   return {
     enrollmentId: str(o.enrollmentId ?? o.enrollment_id),
+    studentId: str(o.studentId ?? o.student_id) || undefined,
+    studentName:
+      o.studentName != null
+        ? String(o.studentName)
+        : o.student_name != null
+          ? String(o.student_name)
+          : null,
+    classCode:
+      o.classCode != null
+        ? String(o.classCode)
+        : o.class_code != null
+          ? String(o.class_code)
+          : null,
+    enrollmentStatus: str(o.enrollmentStatus ?? o.enrollment_status) || undefined,
     tuitionFee: num(o.tuitionFee ?? o.tuition_fee),
     totalPaid: num(o.totalPaid ?? o.total_paid),
     totalRefunded: num(o.totalRefunded ?? o.total_refunded),

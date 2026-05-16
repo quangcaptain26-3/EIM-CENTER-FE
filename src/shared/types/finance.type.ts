@@ -23,6 +23,10 @@ export interface ReceiptRow {
 
 export interface DebtSummary {
   enrollmentId: string;
+  studentId?: string;
+  studentName?: string | null;
+  classCode?: string | null;
+  enrollmentStatus?: string;
   tuitionFee: number;
   totalPaid: number;
   totalRefunded: number;
