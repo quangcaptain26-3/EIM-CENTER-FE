@@ -41,6 +41,7 @@ export const REFUND_REASON_TYPES = {
   subjective_schedule_conflict: 'Bận lịch cá nhân',
   subjective_financial: 'Khó khăn tài chính',
   subjective_relocation: 'Chuyển nơi ở',
+  subjective_class_transfer: 'Chuyển sang lớp khác (cùng trình độ)',
   subjective_other: 'Lý do cá nhân khác',
   special_case: 'Trường hợp đặc biệt',
 } as const;
