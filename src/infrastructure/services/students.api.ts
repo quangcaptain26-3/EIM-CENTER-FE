@@ -129,7 +129,12 @@ export async function pauseEnrollment(
   id: string,
   data: PauseEnrollmentBody | Record<string, unknown>,
 ): Promise<PauseEnrollmentOutcome> {
-  const res = await apiClient.post(`/enrollments/${id}/pause`, data);
+  const enrollmentId = id?.trim();
+  if (!enrollmentId || enrollmentId === 'undefined') {
+    throw new Error('Thiếu mã ghi danh (enrollment id). Vui lòng tải lại trang học viên.');
+  }
+  const { enrollmentId: _omit, enrollment_id: _omit2, id: _omit3, ...body } = data as Record<string, unknown>;
+  const res = await apiClient.post(`/enrollments/${enrollmentId}/pause`, body);
   return parsePauseEnrollmentResult(res);
 }
 
@@ -148,6 +153,41 @@ export async function transferClass(
 ): Promise<EnrollmentResponse> {
   const res = await apiClient.post(`/enrollments/${id}/transfer-class`, data);
   return unwrapApiData<EnrollmentResponse>(res);
+}
+
+export async function cancelReservation(
+  id: string,
+  data: { reasonDetail: string },
+): Promise<EnrollmentResponse> {
+  const res = await apiClient.post(`/enrollments/${id}/cancel-reservation`, data);
+  return unwrapApiData<EnrollmentResponse>(res);
+}
+
+export async function reassignReservedClass(
+  id: string,
+  data: { newClassId: string },
+): Promise<EnrollmentResponse> {
+  const res = await apiClient.post(`/enrollments/${id}/reassign-reserved-class`, data);
+  return unwrapApiData<EnrollmentResponse>(res);
+}
+
+export interface TransferReservationResult {
+  oldEnrollmentId: string;
+  newEnrollmentId: string;
+  credit: number;
+  newTuition: number;
+  newReservationFee: number;
+  appliedToDeposit: number;
+  appliedToRemaining: number;
+  depositShortfall: number;
+}
+
+export async function transferReservation(
+  id: string,
+  data: { newClassId: string; reasonDetail: string },
+): Promise<TransferReservationResult> {
+  const res = await apiClient.post(`/enrollments/${id}/transfer-reservation`, data);
+  return unwrapApiData<TransferReservationResult>(res);
 }
 
 /** Q15: Admin mở khóa học bù — body.reason ≥ 10 ký tự (BE validate). */

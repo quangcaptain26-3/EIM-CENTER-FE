@@ -9,6 +9,9 @@ import {
   resetMakeupBlocked,
   startTrialEnrollment,
   transferClass,
+  cancelReservation,
+  reassignReservedClass,
+  transferReservation,
 } from '@/infrastructure/services/students.api';
 import { QUERY_KEYS } from '@/infrastructure/query/query-keys';
 import { mutationToastApiError } from '@/presentation/hooks/toast-api-error';
@@ -129,6 +132,67 @@ export function useTransferClass() {
     }) => transferClass(id, body),
     onSuccess: (_r, { studentId }) => {
       toast.success('Đã chuyển lớp');
+      invalidateStudentEnrollments(qc, studentId);
+    },
+    onError: mutationToastApiError,
+  });
+}
+
+export function useCancelReservation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      studentId: string;
+      body: { reasonDetail: string };
+    }) => cancelReservation(id, body),
+    onSuccess: (_r, { studentId }) => {
+      toast.success('Đã hủy giữ chỗ');
+      invalidateStudentEnrollments(qc, studentId);
+    },
+    onError: mutationToastApiError,
+  });
+}
+
+export function useReassignReservedClass() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      studentId: string;
+      body: { newClassId: string };
+    }) => reassignReservedClass(id, body),
+    onSuccess: (_r, { studentId }) => {
+      toast.success('Đã đổi lớp giữ chỗ');
+      invalidateStudentEnrollments(qc, studentId);
+    },
+    onError: mutationToastApiError,
+  });
+}
+
+export function useTransferReservation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      studentId: string;
+      body: { newClassId: string; reasonDetail: string };
+    }) => transferReservation(id, body),
+    onSuccess: (r, { studentId }) => {
+      const extra =
+        r.depositShortfall > 0
+          ? ` Cần thu thêm phí giữ chỗ: ${r.depositShortfall.toLocaleString('vi-VN')}đ.`
+          : '';
+      toast.success('Đã chuyển giữ chỗ', { description: `Ghi danh mới: ${r.newEnrollmentId.slice(0, 8)}…${extra}` });
       invalidateStudentEnrollments(qc, studentId);
     },
     onError: mutationToastApiError,
