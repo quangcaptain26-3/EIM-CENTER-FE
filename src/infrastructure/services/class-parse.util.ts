@@ -157,13 +157,39 @@ export function parseRosterResponse(raw: unknown): RosterRow[] {
   return rows.map((r) => normalizeRosterRow(r as Record<string, unknown>));
 }
 
+function normalizeProgramRow(row: Record<string, unknown>): ProgramOption {
+  const df = row.defaultFee ?? row.default_fee;
+  const defaultFee =
+    typeof df === 'number' && Number.isFinite(df) ? df : df != null && String(df).length > 0 ? Number(df) : undefined;
+  const ts = row.totalSessions ?? row.total_sessions;
+  const totalSessions =
+    typeof ts === 'number' && Number.isFinite(ts) ? ts : ts != null ? Number(ts) || 24 : undefined;
+  const lo = row.levelOrder ?? row.level_order;
+  const levelOrder = typeof lo === 'number' && Number.isFinite(lo) ? lo : lo != null ? Number(lo) : undefined;
+  const rawActive = row.isActive ?? row.is_active;
+  const isActive = rawActive === undefined || rawActive === null ? true : Boolean(rawActive);
+
+  return {
+    id: String(row.id ?? ''),
+    name: String(row.name ?? ''),
+    code: row.code as ProgramOption['code'],
+    defaultFee,
+    totalSessions,
+    levelOrder,
+    isActive,
+    feeLabel: defaultFee != null ? undefined : row.feeLabel as string | undefined,
+    feePerSession: row.feePerSession as number | undefined,
+  };
+}
+
 export function parseProgramsResponse(raw: unknown): ProgramOption[] {
   const inner = unwrapBody(raw);
-  if (Array.isArray(inner)) return inner as ProgramOption[];
-  if (inner && typeof inner === 'object' && Array.isArray((inner as { data?: unknown }).data)) {
-    return (inner as { data: ProgramOption[] }).data;
+  let rows: unknown[] = [];
+  if (Array.isArray(inner)) rows = inner;
+  else if (inner && typeof inner === 'object' && Array.isArray((inner as { data?: unknown }).data)) {
+    rows = (inner as { data: unknown[] }).data;
   }
-  return [];
+  return rows.map((r) => normalizeProgramRow(r as Record<string, unknown>));
 }
 
 /** id entity vừa tạo (class, …) */

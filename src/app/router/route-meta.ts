@@ -86,10 +86,12 @@ export const appRouteMetaList: AppRouteMeta[] = [
       },
       {
         key: 'curriculum-programs-edit',
-        label: 'Cập nhật chương trình',
+        label: 'Chỉnh học phí chương trình',
         path: RoutePaths.CURRICULUM_PROGRAM_EDIT,
         parentKey: 'curriculum-programs-detail',
-        allowedRoles: [AppRoles.ROOT, AppRoles.DIRECTOR, AppRoles.ACADEMIC],
+        allowedRoles: [AppRoles.ROOT, AppRoles.DIRECTOR],
+        readRoles: [AppRoles.ROOT, AppRoles.DIRECTOR],
+        writeRoles: [AppRoles.ROOT, AppRoles.DIRECTOR],
         showInSidebar: false,
         showInBreadcrumb: true,
       }

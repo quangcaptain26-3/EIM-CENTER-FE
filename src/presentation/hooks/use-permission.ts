@@ -33,6 +33,8 @@ export function usePermission() {
       canManageAcademicEnrollment: r === ROLES.ADMIN || r === ROLES.ACADEMIC,
       /** Q15: mở khóa makeup_blocked — chỉ ADMIN */
       canResetMakeupBlocked: r === ROLES.ADMIN,
+      /** Chỉnh học phí mặc định chương trình (programs.default_fee) — chỉ ADMIN */
+      canEditProgramDefaultFee: r === ROLES.ADMIN,
       /** Đóng lớp khi còn buổi pending — POST body `force: true`, BE chỉ chấp nhận ADMIN */
       canForceCloseClass: r === ROLES.ADMIN,
     };

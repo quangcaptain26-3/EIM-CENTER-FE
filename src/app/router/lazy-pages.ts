@@ -6,15 +6,9 @@ export const LazyForbiddenPage = lazy(() => import('@/presentation/pages/errors/
 export const LazyNotFoundPage = lazy(() => import('@/presentation/pages/errors/not-found.page'));
 export const LazyUpcomingClassesPage = lazy(() => import('@/presentation/pages/public/upcoming-classes.page'));
 
-export const LazyProgramListPage = lazy(() =>
-  import('@/presentation/pages/curriculum/program-list.page').then((m) => ({ default: m.ProgramListPage })),
-);
-export const LazyProgramDetailPage = lazy(() =>
-  import('@/presentation/pages/curriculum/program-detail.page').then((m) => ({ default: m.ProgramDetailPage })),
-);
-export const LazyProgramFormPage = lazy(() =>
-  import('@/presentation/pages/curriculum/program-form.page').then((m) => ({ default: m.ProgramFormPage })),
-);
+export const LazyProgramListPage = lazy(() => import('@/presentation/pages/curriculum/program-list.page'));
+export const LazyProgramDetailPage = lazy(() => import('@/presentation/pages/curriculum/program-detail.page'));
+export const LazyProgramFormPage = lazy(() => import('@/presentation/pages/curriculum/program-form.page'));
 
 export const LazyStudentListPage = lazy(() => import('@/presentation/pages/students/student-list.page'));
 export const LazyStudentDetailPage = lazy(() => import('@/presentation/pages/students/student-detail.page'));

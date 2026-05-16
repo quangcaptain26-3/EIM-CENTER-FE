@@ -143,6 +143,14 @@ export async function getPrograms(): Promise<ProgramResponse[]> {
   return unwrapApiData<ProgramResponse[]>(res);
 }
 
+export async function updateProgramDefaultFee(
+  programId: string,
+  body: { defaultFee: number },
+): Promise<ProgramResponse> {
+  const res = await apiClient.patch(`/programs/${programId}`, body);
+  return unwrapApiData<ProgramResponse>(res);
+}
+
 export async function getRooms(): Promise<RoomResponse[]> {
   const res = await apiClient.get('/rooms');
   return unwrapApiData<RoomResponse[]>(res);

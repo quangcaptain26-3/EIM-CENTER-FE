@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getClass,
   getClassAttendanceMatrix,
@@ -7,6 +7,7 @@ import {
   getRoster,
   getRooms,
   getUpcomingClasses,
+  updateProgramDefaultFee,
 } from '@/infrastructure/services/classes.api';
 import { QUERY_KEYS } from '@/infrastructure/query/query-keys';
 import {
@@ -146,6 +147,17 @@ export function useParsedPrograms() {
     isLoading: q.isLoading,
     refetch: q.refetch,
   };
+}
+
+export function useUpdateProgramDefaultFee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ programId, defaultFee }: { programId: string; defaultFee: number }) =>
+      updateProgramDefaultFee(programId, { defaultFee }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.REFERENCE.programs });
+    },
+  });
 }
 
 export function useUpcomingClasses() {

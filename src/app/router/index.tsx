@@ -123,11 +123,7 @@ export const router = createBrowserRouter([
       },
       {
         path: RoutePaths.CURRICULUM_PROGRAM_NEW,
-        element: (
-          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
-            <P.LazyProgramFormPage />
-          </RoleGuard>
-        ),
+        element: <Navigate to={RoutePaths.CURRICULUM_PROGRAMS} replace />,
       },
       {
         path: RoutePaths.CURRICULUM_PROGRAM_DETAIL,
@@ -140,7 +136,7 @@ export const router = createBrowserRouter([
       {
         path: RoutePaths.CURRICULUM_PROGRAM_EDIT,
         element: (
-          <RoleGuard allowedRoles={[ADMIN, ACADEMIC]}>
+          <RoleGuard allowedRoles={[ADMIN]}>
             <P.LazyProgramFormPage />
           </RoleGuard>
         ),

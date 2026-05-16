@@ -75,6 +75,11 @@ export interface ProgramOption {
   id: string;
   name: string;
   code?: ProgramCode;
+  /** Học phí gói mặc định (programs.default_fee) */
+  defaultFee?: number;
+  totalSessions?: number;
+  levelOrder?: number;
+  isActive?: boolean;
   feePerSession?: number;
   feeLabel?: string;
 }

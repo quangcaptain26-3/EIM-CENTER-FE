@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Users,
   BookOpen,
+  Library,
   GraduationCap,
   PauseCircle,
   Calendar,
@@ -76,6 +77,13 @@ export const SIDEBAR_MENU_ITEMS: SidebarMenuItem[] = [
     icon: GraduationCap,
     group: 'operations',
     requiredRoles: [ADMIN, ACADEMIC],
+  },
+  {
+    label: 'Chương trình học',
+    path: PATHS.CURRICULUM_PROGRAMS,
+    icon: Library,
+    group: 'operations',
+    requiredRoles: [ADMIN, ACADEMIC, ACCOUNTANT, TEACHER],
   },
   {
     label: 'Bảo lưu',
