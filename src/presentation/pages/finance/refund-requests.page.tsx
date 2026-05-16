@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState, useTransition } from 'react';
 import {
   createColumnHelper,
   flexRender,
@@ -6,19 +6,16 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { Button } from '@/shared/ui/button';
-import { Modal } from '@/shared/ui/modal';
-import { FormInput } from '@/shared/ui/form/form-input';
 import { Badge } from '@/shared/ui/badge';
 import { useAuth } from '@/presentation/hooks/auth/use-auth';
-import {
-  useApproveRefundRequest,
-  useRefundRequestsList,
-  useRejectRefundRequest,
-} from '@/presentation/hooks/finance/use-refund-requests';
+import { useRefundRequests } from '@/presentation/hooks/finance/use-refund-requests';
+import { RefundApproveModal } from '@/presentation/components/finance/refund-approve-modal';
+import { RefundRejectModal } from '@/presentation/components/finance/refund-reject-modal';
 import { ROLES } from '@/shared/constants/roles';
 import { formatVnd } from '@/shared/utils/format-vnd';
 import type { RefundRequestRow } from '@/shared/types/finance.type';
 import { cn } from '@/shared/lib/cn';
+import { toast } from 'sonner';
 
 const columnHelper = createColumnHelper<RefundRequestRow>();
 
@@ -43,24 +40,53 @@ function statusTabLabel(s: string): string {
   return m[s] ?? s;
 }
 
+const RefundRowActions = memo(function RefundRowActions({
+  onApprove,
+  onReject,
+}: {
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  return (
+    <div className="flex gap-2">
+      <Button type="button" size="sm" onClick={onApprove}>
+        Duyệt
+      </Button>
+      <Button type="button" size="sm" variant="danger" onClick={onReject}>
+        Từ chối
+      </Button>
+    </div>
+  );
+});
+
 export default function RefundRequestsPage() {
   const { role } = useAuth();
   const isAdmin = role === ROLES.ADMIN;
   const [tab, setTab] = useState<TabKey>('pending');
+  const [, startTransition] = useTransition();
 
-  const { items, isLoading, refetch } = useRefundRequestsList({
-    limit: 200,
+  const { items, isLoading, isFetching, listParams } = useRefundRequests({
+    limit: 50,
     status: tab,
   });
 
-  const approveM = useApproveRefundRequest();
-  const rejectM = useRejectRefundRequest();
-
   const [approveId, setApproveId] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
-  const [approveNote, setApproveNote] = useState('');
-  const [approvedAmountStr, setApprovedAmountStr] = useState('');
-  const [rejectNote, setRejectNote] = useState('');
+
+  const openApprove = useCallback(
+    (row: RefundRequestRow) => {
+      if ((row.refundAmount ?? 0) <= 0) {
+        toast.error('Không thể duyệt: số tiền hoàn phí bằng 0. Kiểm tra lại yêu cầu hoặc dùng trường hợp đặc biệt.');
+        return;
+      }
+      startTransition(() => setApproveId(row.id));
+    },
+    [startTransition],
+  );
+  const openReject = useCallback(
+    (id: string) => startTransition(() => setRejectId(id)),
+    [startTransition],
+  );
 
   const columns = useMemo(
     () => [
@@ -103,19 +129,15 @@ export default function RefundRequestsPage() {
           const pending = ctx.row.original.status === 'pending';
           if (!pending || !isAdmin) return null;
           return (
-            <div className="flex gap-2">
-              <Button type="button" size="sm" onClick={() => setApproveId(ctx.row.original.id)}>
-                Duyệt
-              </Button>
-              <Button type="button" size="sm" variant="danger" onClick={() => setRejectId(ctx.row.original.id)}>
-                Từ chối
-              </Button>
-            </div>
+            <RefundRowActions
+              onApprove={() => openApprove(ctx.row.original)}
+              onReject={() => openReject(ctx.row.original.id)}
+            />
           );
         },
       }),
     ],
-    [isAdmin],
+    [isAdmin, openApprove, openReject],
   );
 
   const table = useReactTable({ data: items, columns, getCoreRowModel: getCoreRowModel() });
@@ -128,7 +150,12 @@ export default function RefundRequestsPage() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <h1 className="text-xl font-semibold text-[var(--text-primary)]">Yêu cầu hoàn phí</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold text-[var(--text-primary)]">Yêu cầu hoàn phí</h1>
+        {isFetching && !isLoading ? (
+          <span className="text-xs text-[var(--text-muted)]">Đang đồng bộ…</span>
+        ) : null}
+      </div>
 
       <div className="flex flex-wrap gap-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-0.5">
         {tabs.map((t) => (
@@ -190,86 +217,12 @@ export default function RefundRequestsPage() {
         </table>
       </div>
 
-      <Modal
-        isOpen={Boolean(approveId)}
-        onClose={() => {
-          setApproveId(null);
-          setApproveNote('');
-          setApprovedAmountStr('');
-        }}
-        title="Duyệt hoàn phí"
-        footer={
-          <>
-            <Button type="button" variant="secondary" onClick={() => setApproveId(null)} disabled={approveM.isPending}>
-              Hủy
-            </Button>
-            <Button
-              type="button"
-              isLoading={approveM.isPending}
-              onClick={async () => {
-                if (!approveId) return;
-                const raw = approvedAmountStr.replace(/\D/g, '');
-                const approvedAmount = raw ? Number(raw) : undefined;
-                await approveM.mutateAsync({
-                  id: approveId,
-                  reviewNote: approveNote.trim() || '—',
-                  approvedAmount,
-                });
-                setApproveId(null);
-                setApproveNote('');
-                setApprovedAmountStr('');
-                void refetch();
-              }}
-            >
-              Duyệt
-            </Button>
-          </>
-        }
-      >
-        <p className="mb-2 text-sm text-[var(--text-secondary)]">Số tiền hoàn thực tế (tuỳ chọn, để trống = theo hệ thống)</p>
-        <FormInput
-          value={approvedAmountStr}
-          onChange={(e) => setApprovedAmountStr(e.target.value)}
-          placeholder="VD: 1500000"
-          className="mb-3"
-        />
-        <p className="mb-2 text-sm text-[var(--text-secondary)]">Ghi chú duyệt</p>
-        <FormInput value={approveNote} onChange={(e) => setApproveNote(e.target.value)} placeholder="Ghi chú" />
-      </Modal>
-
-      <Modal
-        isOpen={Boolean(rejectId)}
-        onClose={() => {
-          setRejectId(null);
-          setRejectNote('');
-        }}
-        title="Từ chối hoàn phí"
-        footer={
-          <>
-            <Button type="button" variant="secondary" onClick={() => setRejectId(null)} disabled={rejectM.isPending}>
-              Hủy
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              isLoading={rejectM.isPending}
-              disabled={!rejectNote.trim()}
-              onClick={async () => {
-                if (!rejectId) return;
-                await rejectM.mutateAsync({ id: rejectId, reviewNote: rejectNote.trim() });
-                setRejectId(null);
-                setRejectNote('');
-                void refetch();
-              }}
-            >
-              Từ chối
-            </Button>
-          </>
-        }
-      >
-        <p className="mb-2 text-sm text-[var(--text-secondary)]">Lý do từ chối (bắt buộc)</p>
-        <FormInput value={rejectNote} onChange={(e) => setRejectNote(e.target.value)} placeholder="Nhập lý do" />
-      </Modal>
-    </div>
+      <RefundApproveModal
+        requestId={approveId}
+        listParams={listParams}
+        onClose={() => setApproveId(null)}
+      />
+      <RefundRejectModal requestId={rejectId} listParams={listParams} onClose={() => setRejectId(null)} />
+      </div>
   );
 }
