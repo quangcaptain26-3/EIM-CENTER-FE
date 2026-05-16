@@ -124,8 +124,9 @@ function normalizeEnrollmentRow(r: Record<string, unknown>): EnrollmentCardModel
       : r.tuition_fee != null
         ? Number(r.tuition_fee)
         : undefined;
+  const rawId = r.id ?? r.enrollmentId ?? r.enrollment_id;
   return {
-    id: String(r.id),
+    id: rawId != null && String(rawId) !== 'undefined' ? String(rawId) : '',
     programId: r.programId != null ? String(r.programId) : r.program_id != null ? String(r.program_id) : undefined,
     programCode:
       r.programCode != null
