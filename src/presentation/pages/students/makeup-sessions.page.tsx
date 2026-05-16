@@ -5,6 +5,7 @@ import { DataTable } from '@/shared/ui/data-table';
 import { useMakeupSessionsList, useCompleteMakeupSession, useCancelMakeupSession } from '@/presentation/hooks/students/use-makeup-sessions';
 import type { MakeupSessionRow } from '@/shared/types/student.type';
 import { SessionBadge } from '@/shared/ui/badge';
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { cn } from '@/shared/lib/cn';
 
 const FILTER_TABS: { value: '' | 'pending' | 'completed' | 'cancelled'; label: string }[] = [
@@ -16,6 +17,7 @@ const FILTER_TABS: { value: '' | 'pending' | 'completed' | 'cancelled'; label: s
 
 export default function MakeupSessionsPage() {
   const [status, setStatus] = useState<'' | 'pending' | 'completed' | 'cancelled'>('');
+  const [cancelTarget, setCancelTarget] = useState<MakeupSessionRow | null>(null);
   const listParams = useMemo(() => (status ? { status } : {}), [status]);
   const { items, isLoading, refetch } = useMakeupSessionsList(listParams);
   const completeM = useCompleteMakeupSession();
@@ -97,11 +99,7 @@ export default function MakeupSessionsPage() {
                 size="sm"
                 variant="danger"
                 disabled={cancelM.isPending}
-                onClick={async () => {
-                  if (!window.confirm('Hủy buổi học bù này?')) return;
-                  await cancelM.mutateAsync(r.id);
-                  void refetch();
-                }}
+                onClick={() => setCancelTarget(r)}
               >
                 Hủy
               </Button>
@@ -143,6 +141,31 @@ export default function MakeupSessionsPage() {
         isLoading={isLoading}
         emptyMessage="Không có buổi học bù."
         getRowId={(r) => r.id}
+      />
+
+      <ConfirmDialog
+        open={Boolean(cancelTarget)}
+        onClose={() => setCancelTarget(null)}
+        variant="danger"
+        title="Hủy buổi học bù"
+        message={
+          cancelTarget
+            ? `Bạn có chắc muốn hủy buổi học bù của ${cancelTarget.studentName ?? 'học viên này'}${cancelTarget.scheduledDate ? ` (ngày ${cancelTarget.scheduledDate.slice(0, 10)})` : ''}? Hành động này không thể hoàn tác.`
+            : ''
+        }
+        confirmLabel="Hủy buổi bù"
+        cancelLabel="Đóng"
+        loading={cancelM.isPending}
+        onConfirm={async () => {
+          if (!cancelTarget) return;
+          try {
+            await cancelM.mutateAsync(cancelTarget.id);
+            setCancelTarget(null);
+            void refetch();
+          } catch {
+            /* toast / error từ hook nếu có */
+          }
+        }}
       />
     </div>
   );
