@@ -22,6 +22,8 @@ import type { ClassDetail } from '@/shared/types/class.type';
 import type { EnrollmentCardModel, StudentListItem } from '@/shared/types/student.type';
 
 const BLOCKING_ENROLLMENT = new Set<string>([
+  ENROLLMENT_STATUS.reserved,
+  ENROLLMENT_STATUS.pending,
   ENROLLMENT_STATUS.trial,
   ENROLLMENT_STATUS.active,
   ENROLLMENT_STATUS.paused,
@@ -421,8 +423,8 @@ export default function ClassEnrollStudentPage() {
             )}
             {hasBlockingEnrollmentElsewhere ? (
               <p className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
-                Học viên đang có ghi danh trial, active hoặc paused — không thể tạo ghi danh mới cho đến khi xử lý
-                xong (chuyển lớp / nghỉ / hoàn tất…).
+                Học viên đang có ghi danh reserved, pending, trial, active hoặc paused — xử lý ghi danh hiện tại
+                trước (hủy giữ chỗ / đổi lớp / chuyển giữ chỗ…).
               </p>
             ) : null}
           </div>
@@ -440,13 +442,18 @@ export default function ClassEnrollStudentPage() {
             />
             {enrollmentStatus === 'reserved' ? (
               <div>
-                <label className="mb-1 block text-sm">Phí giữ chỗ (VND)</label>
+                <p className="mb-2 text-sm text-[var(--text-secondary)]">
+                  Phí giữ chỗ = <strong>20%</strong> học phí (tự tính nếu để trống). Tạo phiếu thu sau ghi danh; kích
+                  hoạt khi đủ 100% học phí (80% còn lại).
+                </p>
+                <label className="mb-1 block text-sm">Phí giữ chỗ (VND, tuỳ chọn)</label>
                 <input
                   type="number"
                   min={1}
                   className="w-full max-w-xs rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm"
                   value={reservationFee}
                   onChange={(ev) => setReservationFee(ev.target.value)}
+                  placeholder="Để trống = 20% học phí"
                 />
               </div>
             ) : null}

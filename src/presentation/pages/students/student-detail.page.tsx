@@ -921,13 +921,17 @@ export default function StudentDetailPage() {
         />
         {enrollmentStatus === 'reserved' ? (
           <div className="mt-3">
-            <label className="mb-1 block text-sm">Reservation fee</label>
+            <p className="mb-2 text-sm text-[var(--text-secondary)]">
+              Phí giữ chỗ = 20% học phí (tự tính nếu để trống). Tạo phiếu thu sau ghi danh.
+            </p>
+            <label className="mb-1 block text-sm">Phí giữ chỗ (VND, tuỳ chọn)</label>
             <input
               type="number"
               min={1}
               className="w-full rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-3 py-2 text-sm"
               value={reservationFee}
               onChange={(e) => setReservationFee(e.target.value)}
+              placeholder="Để trống = 20% học phí"
             />
           </div>
         ) : null}

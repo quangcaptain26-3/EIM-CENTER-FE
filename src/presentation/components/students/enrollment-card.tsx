@@ -12,13 +12,19 @@ import { programPillClass } from '@/presentation/components/classes/program-them
 import { TransferClassModal } from '@/presentation/components/students/transfer-class-modal';
 import { PauseModal } from '@/presentation/components/students/pause-modal';
 import { DropModal } from '@/presentation/components/students/drop-modal';
+import { CancelReservationModal } from '@/presentation/components/students/cancel-reservation-modal';
+import { ReassignReservedClassModal } from '@/presentation/components/students/reassign-reserved-class-modal';
+import { TransferReservationModal } from '@/presentation/components/students/transfer-reservation-modal';
 import {
   useActivateEnrollment,
+  useCancelReservation,
   useDropEnrollment,
   usePauseEnrollment,
+  useReassignReservedClass,
   useResetMakeupBlocked,
   useResumeEnrollment,
   useTransferClass,
+  useTransferReservation,
 } from '@/presentation/hooks/students/use-enrollment-mutations';
 import { usePermission } from '@/presentation/hooks/use-permission';
 import { Tooltip } from '@/shared/ui/tooltip';
@@ -103,11 +109,17 @@ export function EnrollmentCard({ enrollment: e, studentId, studentFullName }: En
   const [transferOpen, setTransferOpen] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
+  const [cancelReservationOpen, setCancelReservationOpen] = useState(false);
+  const [reassignReservedOpen, setReassignReservedOpen] = useState(false);
+  const [transferReservationOpen, setTransferReservationOpen] = useState(false);
   const [makeupUnblockOpen, setMakeupUnblockOpen] = useState(false);
   const [makeupUnblockReason, setMakeupUnblockReason] = useState('');
 
   const activate = useActivateEnrollment();
   const dropM = useDropEnrollment();
+  const cancelReservationM = useCancelReservation();
+  const reassignReservedM = useReassignReservedClass();
+  const transferReservationM = useTransferReservation();
   const pauseM = usePauseEnrollment();
   const resumeM = useResumeEnrollment();
   const transferM = useTransferClass();
@@ -262,9 +274,52 @@ export function EnrollmentCard({ enrollment: e, studentId, studentFullName }: En
 
       {canMutate && !readonly && (
         <div className="mt-4 flex flex-wrap gap-2 border-t border-[var(--border-subtle)] pt-4">
-          {(e.status === ENROLLMENT_STATUS.pending ||
-            e.status === ENROLLMENT_STATUS.reserved ||
-            e.status === ENROLLMENT_STATUS.trial) && (
+          {(e.status === ENROLLMENT_STATUS.pending || e.status === ENROLLMENT_STATUS.reserved) && (
+            <>
+              {canCreateReceipt ? (
+                <Button type="button" size="sm" variant="secondary" asChild>
+                  <Link
+                    to={`${RoutePaths.RECEIPT_NEW}?studentId=${encodeURIComponent(studentId)}&enrollmentId=${encodeURIComponent(e.id)}`}
+                  >
+                    Tạo phiếu thu
+                  </Link>
+                </Button>
+              ) : null}
+              {e.status === ENROLLMENT_STATUS.reserved ? (
+                <>
+                  <Button type="button" size="sm" variant="secondary" onClick={() => setReassignReservedOpen(true)}>
+                    Đổi lớp đang chờ
+                  </Button>
+                  <Button type="button" size="sm" variant="secondary" onClick={() => setTransferReservationOpen(true)}>
+                    Chuyển giữ chỗ
+                  </Button>
+                </>
+              ) : null}
+              {activateBlocked ? (
+                <Tooltip content={activateTooltip}>
+                  <span className="inline-flex cursor-not-allowed">
+                    <Button type="button" size="sm" disabled>
+                      Kích hoạt
+                    </Button>
+                  </span>
+                </Tooltip>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  isLoading={activate.isPending}
+                  onClick={() => activate.mutate({ id: e.id, studentId })}
+                >
+                  Kích hoạt
+                </Button>
+              )}
+              <Button type="button" size="sm" variant="danger" onClick={() => setCancelReservationOpen(true)}>
+                Hủy giữ chỗ
+              </Button>
+            </>
+          )}
+
+          {e.status === ENROLLMENT_STATUS.trial && (
             <>
               {canCreateReceipt ? (
                 <Button type="button" size="sm" variant="secondary" asChild>
@@ -379,6 +434,10 @@ export function EnrollmentCard({ enrollment: e, studentId, studentFullName }: En
         sessionsAttended={e.sessionsAttended ?? 0}
         isSubmitting={pauseM.isPending}
         onSubmit={async (values) => {
+          if (!e.id?.trim() || e.id === 'undefined') {
+            toast.error('Không xác định được ghi danh. Vui lòng tải lại trang.');
+            return;
+          }
           const result = await pauseM.mutateAsync({ id: e.id, studentId, body: { reason: values.reason } });
           if (result.kind === 'paused') {
             toast.success('Đã bảo lưu thành công');
@@ -400,6 +459,38 @@ export function EnrollmentCard({ enrollment: e, studentId, studentFullName }: En
         onSubmit={async (body) => {
           await dropM.mutateAsync({ id: e.id, studentId, body });
           setDropOpen(false);
+        }}
+      />
+
+      <CancelReservationModal
+        isOpen={cancelReservationOpen}
+        onClose={() => setCancelReservationOpen(false)}
+        isSubmitting={cancelReservationM.isPending}
+        onSubmit={async (body) => {
+          await cancelReservationM.mutateAsync({ id: e.id, studentId, body });
+          setCancelReservationOpen(false);
+        }}
+      />
+
+      <ReassignReservedClassModal
+        isOpen={reassignReservedOpen}
+        onClose={() => setReassignReservedOpen(false)}
+        enrollment={e}
+        isSubmitting={reassignReservedM.isPending}
+        onSubmit={async (newClassId) => {
+          await reassignReservedM.mutateAsync({ id: e.id, studentId, body: { newClassId } });
+          setReassignReservedOpen(false);
+        }}
+      />
+
+      <TransferReservationModal
+        isOpen={transferReservationOpen}
+        onClose={() => setTransferReservationOpen(false)}
+        enrollment={e}
+        isSubmitting={transferReservationM.isPending}
+        onSubmit={async (body) => {
+          await transferReservationM.mutateAsync({ id: e.id, studentId, body });
+          setTransferReservationOpen(false);
         }}
       />
 
