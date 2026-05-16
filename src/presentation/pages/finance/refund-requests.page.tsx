@@ -23,10 +23,10 @@ type TabKey = 'pending' | 'approved' | 'rejected';
 
 function reasonBadge(reasonType: string) {
   if (reasonType === 'center_unable_to_open') {
-    return <Badge className="border-amber-500/40 bg-amber-500/15 text-amber-200">Trung tâm</Badge>;
+    return <Badge variant="warning">Trung tâm</Badge>;
   }
   if (reasonType === 'special_case') {
-    return <Badge className="border-sky-500/40 bg-sky-500/15 text-sky-200">Đặc biệt</Badge>;
+    return <Badge variant="info">Đặc biệt</Badge>;
   }
   return <Badge variant="default">Cá nhân</Badge>;
 }

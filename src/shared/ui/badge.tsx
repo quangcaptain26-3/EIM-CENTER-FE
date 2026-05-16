@@ -3,6 +3,11 @@ import { cn } from '@/shared/lib/cn';
 import type { EnrollmentStatus } from '@/shared/types/student.type';
 import type { RoleCode } from '@/shared/types/auth.type';
 import { SESSION_STATUS } from '@/shared/constants/statuses';
+import {
+  BADGE_BASE,
+  ENROLLMENT_BADGE_CLASS,
+  ENROLLMENT_BADGE_FALLBACK,
+} from '@/shared/ui/badge-tones';
 
 export type BadgeVariant =
   | 'default'
@@ -31,8 +36,9 @@ const variantClass: Record<BadgeVariant, string> = {
   danger:
     'bg-[var(--danger-bg)] text-[var(--danger-text)] border-[var(--danger-border)]',
   info: 'bg-[var(--info-bg)] text-[var(--info-text)] border-[var(--info-border)]',
-  purple: 'bg-violet-500/10 text-violet-600 border-violet-200 dark:text-violet-300 dark:border-violet-500/25',
-  teal: 'bg-cyan-500/10 text-cyan-600 border-cyan-200 dark:text-cyan-300 dark:border-cyan-500/25',
+  purple:
+    'bg-[var(--badge-transferred-bg)] text-[var(--badge-transferred-text)] border-[var(--badge-transferred-border)]',
+  teal: 'bg-[var(--badge-completed-bg)] text-[var(--badge-completed-text)] border-[var(--badge-completed-border)]',
   brand:
     'bg-[var(--accent-subtle)] text-[var(--accent-text)] border-[var(--accent-border)]',
 };
@@ -65,43 +71,15 @@ export function Badge({ children, variant = 'default', dot = false, className }:
   );
 }
 
-const enrollmentStyles: Record<
-  EnrollmentStatus,
-  { label: string; tone: string }
-> = {
-  reserved: {
-    label: 'Giữ chỗ',
-    tone: 'bg-amber-500/10 text-amber-200 border-amber-500/25',
-  },
-  pending: {
-    label: 'Chờ xử lý',
-    tone: 'bg-[var(--badge-pending-bg)] text-[var(--badge-pending-text)] border-[var(--border-subtle)]',
-  },
-  trial: {
-    label: 'Học thử',
-    tone: 'bg-[var(--badge-trial-bg)] text-[var(--badge-trial-text)] border-[var(--border-subtle)]',
-  },
-  active: {
-    label: 'Đang học',
-    tone: 'bg-[var(--badge-active-bg)] text-[var(--badge-active-text)] border-[var(--success-border)]',
-  },
-  paused: {
-    label: 'Tạm dừng',
-    tone: 'bg-[var(--badge-paused-bg)] text-[var(--badge-paused-text)] border-[var(--warning-border)]',
-  },
-  transferred: {
-    label: 'Đã chuyển lớp',
-    tone:
-      'bg-[var(--badge-transferred-bg)] text-[var(--badge-transferred-text)] border-[var(--border-subtle)]',
-  },
-  dropped: {
-    label: 'Đã nghỉ',
-    tone: 'bg-[var(--badge-dropped-bg)] text-[var(--badge-dropped-text)] border-[var(--danger-border)]',
-  },
-  completed: {
-    label: 'Hoàn thành',
-    tone: 'bg-[var(--badge-completed-bg)] text-[var(--badge-completed-text)] border-[var(--info-border)]',
-  },
+const enrollmentStyles: Record<EnrollmentStatus, { label: string; tone: string }> = {
+  reserved: { label: 'Giữ chỗ', tone: ENROLLMENT_BADGE_CLASS.reserved },
+  pending: { label: 'Chờ xử lý', tone: ENROLLMENT_BADGE_CLASS.pending },
+  trial: { label: 'Học thử', tone: ENROLLMENT_BADGE_CLASS.trial },
+  active: { label: 'Đang học', tone: ENROLLMENT_BADGE_CLASS.active },
+  paused: { label: 'Tạm dừng', tone: ENROLLMENT_BADGE_CLASS.paused },
+  transferred: { label: 'Đã chuyển lớp', tone: ENROLLMENT_BADGE_CLASS.transferred },
+  dropped: { label: 'Đã nghỉ', tone: ENROLLMENT_BADGE_CLASS.dropped },
+  completed: { label: 'Hoàn thành', tone: ENROLLMENT_BADGE_CLASS.completed },
 };
 
 export interface EnrollmentBadgeProps {
@@ -115,12 +93,7 @@ export function EnrollmentBadge({ status, className, dot }: EnrollmentBadgeProps
   const cfg = enrollmentStyles[key];
   if (!cfg) {
     return (
-      <span
-        className={cn(
-          'inline-flex items-center gap-1.5 rounded-full border border-[var(--border-default)] bg-[var(--bg-subtle)] px-2 py-0.5 text-xs font-medium text-[var(--text-muted)]',
-          className,
-        )}
-      >
+      <span className={cn(BADGE_BASE, ENROLLMENT_BADGE_FALLBACK, className)}>
         {dot ? (
           <span className="size-1.5 shrink-0 rounded-full bg-[var(--text-muted)]" aria-hidden />
         ) : null}
@@ -129,13 +102,7 @@ export function EnrollmentBadge({ status, className, dot }: EnrollmentBadgeProps
     );
   }
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium',
-        cfg.tone,
-        className,
-      )}
-    >
+    <span className={cn(BADGE_BASE, cfg.tone, className)}>
       {dot ? (
         <span
           className="size-1.5 shrink-0 rounded-full bg-current opacity-80"
@@ -150,22 +117,22 @@ export function EnrollmentBadge({ status, className, dot }: EnrollmentBadgeProps
 const roleTone: Record<RoleCode, { label: string; tone: string; dot: string }> = {
   ADMIN: {
     label: 'Giám đốc',
-    tone: 'border-[var(--border-subtle)] bg-violet-500/10 text-[var(--role-admin)]',
+    tone: 'bg-[var(--badge-transferred-bg)] text-[var(--badge-transferred-text)] border-[var(--badge-transferred-border)]',
     dot: 'bg-[var(--role-admin)]',
   },
   ACADEMIC: {
     label: 'Học vụ',
-    tone: 'border-[var(--border-subtle)] bg-[var(--accent-subtle)] text-[var(--role-academic)]',
+    tone: 'bg-[var(--badge-trial-bg)] text-[var(--badge-trial-text)] border-[var(--badge-trial-border)]',
     dot: 'bg-[var(--role-academic)]',
   },
   ACCOUNTANT: {
     label: 'Kế toán',
-    tone: 'border-[var(--border-subtle)] bg-amber-500/10 text-[var(--role-accountant)]',
+    tone: 'bg-[var(--badge-paused-bg)] text-[var(--badge-paused-text)] border-[var(--badge-paused-border)]',
     dot: 'bg-[var(--role-accountant)]',
   },
   TEACHER: {
     label: 'Giáo viên',
-    tone: 'border-[var(--border-subtle)] bg-cyan-500/10 text-[var(--role-teacher)]',
+    tone: 'bg-[var(--badge-completed-bg)] text-[var(--badge-completed-text)] border-[var(--badge-completed-border)]',
     dot: 'bg-[var(--role-teacher)]',
   },
 };
@@ -197,13 +164,7 @@ export function RoleBadge({ role, className, dot }: RoleBadgeProps) {
     );
   }
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium',
-        cfg.tone,
-        className,
-      )}
-    >
+    <span className={cn(BADGE_BASE, cfg.tone, className)}>
       {dot ? (
         <span className={cn('size-1.5 shrink-0 rounded-full', cfg.dot)} aria-hidden />
       ) : null}

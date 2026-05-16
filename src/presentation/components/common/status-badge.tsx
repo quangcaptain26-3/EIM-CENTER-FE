@@ -1,21 +1,30 @@
 import clsx from 'clsx';
 import { ENROLLMENT_STATUS, SESSION_STATUS, COVER_STATUS } from '@/shared/constants/statuses';
+import {
+  BADGE_BASE,
+  COVER_BADGE_CLASS,
+  ENROLLMENT_BADGE_CLASS,
+  ENROLLMENT_BADGE_FALLBACK,
+  SESSION_BADGE_CLASS,
+} from '@/shared/ui/badge-tones';
 
 type EnrollmentStatus = (typeof ENROLLMENT_STATUS)[keyof typeof ENROLLMENT_STATUS];
 type SessionStatus = (typeof SESSION_STATUS)[keyof typeof SESSION_STATUS];
 type CoverStatus = (typeof COVER_STATUS)[keyof typeof COVER_STATUS];
 
 const ENROLLMENT_STYLES: Record<string, string> = {
-  [ENROLLMENT_STATUS.pending]: 'bg-gray-100 text-gray-800 border-gray-200',
-  [ENROLLMENT_STATUS.trial]: 'bg-blue-100 text-blue-800 border-blue-200',
-  [ENROLLMENT_STATUS.active]: 'bg-green-100 text-green-800 border-green-200',
-  [ENROLLMENT_STATUS.paused]: 'bg-amber-100 text-amber-900 border-amber-200',
-  [ENROLLMENT_STATUS.transferred]: 'bg-purple-100 text-purple-800 border-purple-200',
-  [ENROLLMENT_STATUS.dropped]: 'bg-red-100 text-red-800 border-red-200',
-  [ENROLLMENT_STATUS.completed]: 'bg-teal-100 text-teal-800 border-teal-200',
+  [ENROLLMENT_STATUS.reserved]: ENROLLMENT_BADGE_CLASS.reserved,
+  [ENROLLMENT_STATUS.pending]: ENROLLMENT_BADGE_CLASS.pending,
+  [ENROLLMENT_STATUS.trial]: ENROLLMENT_BADGE_CLASS.trial,
+  [ENROLLMENT_STATUS.active]: ENROLLMENT_BADGE_CLASS.active,
+  [ENROLLMENT_STATUS.paused]: ENROLLMENT_BADGE_CLASS.paused,
+  [ENROLLMENT_STATUS.transferred]: ENROLLMENT_BADGE_CLASS.transferred,
+  [ENROLLMENT_STATUS.dropped]: ENROLLMENT_BADGE_CLASS.dropped,
+  [ENROLLMENT_STATUS.completed]: ENROLLMENT_BADGE_CLASS.completed,
 };
 
 const ENROLLMENT_LABELS: Record<string, string> = {
+  [ENROLLMENT_STATUS.reserved]: 'Giữ chỗ',
   [ENROLLMENT_STATUS.pending]: 'Chờ xử lý',
   [ENROLLMENT_STATUS.trial]: 'Học thử',
   [ENROLLMENT_STATUS.active]: 'Đang học',
@@ -26,9 +35,9 @@ const ENROLLMENT_LABELS: Record<string, string> = {
 };
 
 const SESSION_STYLES: Record<string, string> = {
-  [SESSION_STATUS.pending]: 'bg-gray-100 text-gray-800 border-gray-200',
-  [SESSION_STATUS.completed]: 'bg-green-100 text-green-800 border-green-200',
-  [SESSION_STATUS.cancelled]: 'bg-red-100 text-red-800 border-red-200',
+  [SESSION_STATUS.pending]: SESSION_BADGE_CLASS.pending,
+  [SESSION_STATUS.completed]: SESSION_BADGE_CLASS.completed,
+  [SESSION_STATUS.cancelled]: SESSION_BADGE_CLASS.cancelled,
 };
 
 const SESSION_LABELS: Record<string, string> = {
@@ -38,10 +47,10 @@ const SESSION_LABELS: Record<string, string> = {
 };
 
 const COVER_STYLES: Record<string, string> = {
-  [COVER_STATUS.pending]: 'bg-gray-100 text-gray-800 border-gray-200',
-  [COVER_STATUS.confirmed]: 'bg-blue-100 text-blue-800 border-blue-200',
-  [COVER_STATUS.completed]: 'bg-green-100 text-green-800 border-green-200',
-  [COVER_STATUS.cancelled]: 'bg-red-100 text-red-800 border-red-200',
+  [COVER_STATUS.pending]: COVER_BADGE_CLASS.pending,
+  [COVER_STATUS.confirmed]: COVER_BADGE_CLASS.confirmed,
+  [COVER_STATUS.completed]: COVER_BADGE_CLASS.completed,
+  [COVER_STATUS.cancelled]: COVER_BADGE_CLASS.cancelled,
 };
 
 const COVER_LABELS: Record<string, string> = {
@@ -73,20 +82,10 @@ export function StatusBadge({ domain, status, className = '' }: StatusBadgeProps
         ? SESSION_LABELS
         : COVER_LABELS;
 
-  const style = styles[status] ?? 'bg-gray-50 text-gray-700 border-gray-200';
+  const style = styles[status] ?? ENROLLMENT_BADGE_FALLBACK;
   const label = labels[status] ?? status;
 
-  return (
-    <span
-      className={clsx(
-        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium',
-        style,
-        className
-      )}
-    >
-      {label}
-    </span>
-  );
+  return <span className={clsx(BADGE_BASE, style, className)}>{label}</span>;
 }
 
 export type { EnrollmentStatus, SessionStatus, CoverStatus };

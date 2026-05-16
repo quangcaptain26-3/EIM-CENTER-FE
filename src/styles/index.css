@@ -67,21 +67,38 @@
   --info-border: rgba(14, 116, 144, 0.2);
   --info-text: #155e75;
 
-  /* Enrollment badge */
-  --badge-pending-bg: #f1f5f9;
-  --badge-pending-text: #475569;
-  --badge-trial-bg: #eef2ff;
-  --badge-trial-text: #4338ca;
-  --badge-active-bg: #f0fdf4;
-  --badge-active-text: #166534;
-  --badge-paused-bg: #fffbeb;
-  --badge-paused-text: #92400e;
-  --badge-transferred-bg: #f5f3ff;
+  /* Enrollment / status badges — nền nhạt + chữ đậm (WCAG trên nền sáng) */
+  --badge-reserved-bg: #fef3c7;
+  --badge-reserved-text: #92400e;
+  --badge-reserved-border: #f59e0b;
+
+  --badge-pending-bg: #e2e8f0;
+  --badge-pending-text: #334155;
+  --badge-pending-border: #94a3b8;
+
+  --badge-trial-bg: #e0e7ff;
+  --badge-trial-text: #3730a3;
+  --badge-trial-border: #818cf8;
+
+  --badge-active-bg: #dcfce7;
+  --badge-active-text: #14532d;
+  --badge-active-border: #22c55e;
+
+  --badge-paused-bg: #ffedd5;
+  --badge-paused-text: #9a3412;
+  --badge-paused-border: #fb923c;
+
+  --badge-transferred-bg: #ede9fe;
   --badge-transferred-text: #5b21b6;
-  --badge-dropped-bg: #fef2f2;
+  --badge-transferred-border: #a78bfa;
+
+  --badge-dropped-bg: #fee2e2;
   --badge-dropped-text: #991b1b;
-  --badge-completed-bg: #ecfeff;
+  --badge-dropped-border: #f87171;
+
+  --badge-completed-bg: #cffafe;
   --badge-completed-text: #155e75;
+  --badge-completed-border: #22d3ee;
 
   /* Role */
   --role-admin: #7c3aed;
@@ -159,20 +176,37 @@
   --info-border: rgba(6, 182, 212, 0.25);
   --info-text: #67e8f9;
 
-  --badge-pending-bg: rgba(255, 255, 255, 0.06);
-  --badge-pending-text: #9898b0;
-  --badge-trial-bg: rgba(108, 99, 255, 0.12);
-  --badge-trial-text: #a5b4fc;
-  --badge-active-bg: rgba(34, 197, 94, 0.1);
-  --badge-active-text: #4ade80;
-  --badge-paused-bg: rgba(245, 158, 11, 0.1);
-  --badge-paused-text: #fcd34d;
-  --badge-transferred-bg: rgba(167, 139, 250, 0.12);
-  --badge-transferred-text: #c4b5fd;
-  --badge-dropped-bg: rgba(239, 68, 68, 0.1);
+  --badge-reserved-bg: rgba(245, 158, 11, 0.22);
+  --badge-reserved-text: #fde68a;
+  --badge-reserved-border: rgba(251, 191, 36, 0.55);
+
+  --badge-pending-bg: rgba(148, 163, 184, 0.18);
+  --badge-pending-text: #e2e8f0;
+  --badge-pending-border: rgba(148, 163, 184, 0.4);
+
+  --badge-trial-bg: rgba(108, 99, 255, 0.22);
+  --badge-trial-text: #c7d2fe;
+  --badge-trial-border: rgba(129, 140, 248, 0.5);
+
+  --badge-active-bg: rgba(34, 197, 94, 0.2);
+  --badge-active-text: #86efac;
+  --badge-active-border: rgba(74, 222, 128, 0.5);
+
+  --badge-paused-bg: rgba(249, 115, 22, 0.22);
+  --badge-paused-text: #fdba74;
+  --badge-paused-border: rgba(251, 146, 60, 0.5);
+
+  --badge-transferred-bg: rgba(167, 139, 250, 0.2);
+  --badge-transferred-text: #ddd6fe;
+  --badge-transferred-border: rgba(196, 181, 253, 0.45);
+
+  --badge-dropped-bg: rgba(239, 68, 68, 0.2);
   --badge-dropped-text: #fca5a5;
-  --badge-completed-bg: rgba(6, 182, 212, 0.1);
-  --badge-completed-text: #67e8f9;
+  --badge-dropped-border: rgba(248, 113, 113, 0.5);
+
+  --badge-completed-bg: rgba(6, 182, 212, 0.2);
+  --badge-completed-text: #a5f3fc;
+  --badge-completed-border: rgba(34, 211, 238, 0.5);
 
   --role-admin: #c4b5fd;
   --role-academic: #a5b4fc;

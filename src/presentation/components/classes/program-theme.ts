@@ -8,15 +8,16 @@ export type ProgramFilterSlug = 'all' | 'kindy' | 'starters' | 'movers' | 'flyer
  * Pill theo cấp — mỗi cấp một gam tách bạch: tím hồng (Kindy) · xanh dương (Starters) · xanh lá (Movers) · cam (Flyers).
  * Hex cố định để luôn có contrast, không phụ thuộc scale Tailwind.
  */
+/** Pill cấp độ — border + nền + chữ tách bạch cho light/dark (không dùng màu chỉ hợp một mode). */
 export const PROGRAM_PILL_CLASS: Record<Exclude<ProgramFilterSlug, 'all'>, string> = {
   kindy:
-    'border-[#e879f9] bg-[#fdf4ff] text-[#86198f] dark:border-[#c026d3] dark:bg-[#3b0764]/80 dark:text-[#f5d0fe]',
+    'border-[#c026d3] bg-[#fae8ff] text-[#701a75] dark:border-[#e879f9] dark:bg-[#4a044e]/90 dark:text-[#f5d0fe]',
   starters:
-    'border-[#3b82f6] bg-[#eff6ff] text-[#1e40af] dark:border-[#2563eb] dark:bg-[#172554]/85 dark:text-[#93c5fd]',
+    'border-[#2563eb] bg-[#dbeafe] text-[#1e3a8a] dark:border-[#60a5fa] dark:bg-[#1e3a8a]/90 dark:text-[#bfdbfe]',
   movers:
-    'border-[#10b981] bg-[#ecfdf5] text-[#065f46] dark:border-[#059669] dark:bg-[#022c22]/85 dark:text-[#6ee7b7]',
+    'border-[#059669] bg-[#d1fae5] text-[#064e3b] dark:border-[#34d399] dark:bg-[#064e3b]/90 dark:text-[#a7f3d0]',
   flyers:
-    'border-[#f97316] bg-[#fff7ed] text-[#9a3412] dark:border-[#ea580c] dark:bg-[#431407]/85 dark:text-[#fdba74]',
+    'border-[#ea580c] bg-[#ffedd5] text-[#7c2d12] dark:border-[#fb923c] dark:bg-[#7c2d12]/90 dark:text-[#fed7aa]',
 };
 
 const KEYWORDS: Record<Exclude<ProgramFilterSlug, 'all'>, string[]> = {

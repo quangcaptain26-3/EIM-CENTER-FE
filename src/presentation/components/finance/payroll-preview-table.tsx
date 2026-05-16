@@ -21,7 +21,7 @@ interface PayrollPreviewTableProps {
 function KindBadge({ kind }: { kind: SessionRowKind }) {
   const map: Record<SessionRowKind, { label: string; className: string }> = {
     main: { label: 'Dạy chính', className: 'border-blue-500/40 bg-blue-500/15 text-blue-200' },
-    cover: { label: 'Cover', className: 'border-amber-500/40 bg-amber-500/15 text-amber-200' },
+    cover: { label: 'Cover', className: 'bg-[var(--badge-paused-bg)] text-[var(--badge-paused-text)] border-[var(--badge-paused-border)]' },
     covered: { label: 'Bị cover', className: 'border-[var(--border-strong)] bg-[var(--bg-elevated)] text-[var(--text-secondary)]' },
   };
   const x = map[kind];
