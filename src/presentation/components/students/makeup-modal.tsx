@@ -149,10 +149,14 @@ export function MakeupModal({
   const roomOptions = useMemo(
     () => [
       { value: '', label: 'Chọn phòng' },
-      ...rooms.map((r) => ({
-        value: r.id,
-        label: r.code ? `${r.code}${r.capacity != null ? ` · ${r.capacity} chỗ` : ''}` : r.name,
-      })),
+      ...rooms.map((r) => {
+        const code = (r.roomCode ?? r.code ?? r.name ?? '').trim();
+        const cap = r.capacity != null ? ` · ${r.capacity} chỗ` : '';
+        return {
+          value: r.id,
+          label: code ? `${code}${cap}` : 'Phòng',
+        };
+      }),
     ],
     [rooms],
   );

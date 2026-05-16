@@ -180,9 +180,26 @@ export function parseCreatedId(raw: unknown): string | null {
 
 export function parseRoomsResponse(raw: unknown): RoomOption[] {
   const inner = unwrapBody(raw);
-  if (Array.isArray(inner)) return inner as RoomOption[];
-  if (inner && typeof inner === 'object' && Array.isArray((inner as { data?: unknown }).data)) {
-    return (inner as { data: RoomOption[] }).data;
-  }
-  return [];
+  const rows: unknown[] = Array.isArray(inner)
+    ? inner
+    : inner && typeof inner === 'object' && Array.isArray((inner as { data?: unknown }).data)
+      ? (inner as { data: unknown[] }).data
+      : [];
+
+  return rows
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null;
+      const r = row as Record<string, unknown>;
+      const id = r.id != null ? String(r.id) : '';
+      const roomCode = String(r.roomCode ?? r.room_code ?? r.code ?? '').trim();
+      if (!id) return null;
+      return {
+        id,
+        name: String(r.name ?? (roomCode || id)),
+        code: roomCode || undefined,
+        roomCode: roomCode || undefined,
+        capacity: r.capacity != null ? Number(r.capacity) : undefined,
+      } satisfies RoomOption;
+    })
+    .filter((r): r is RoomOption => r != null);
 }

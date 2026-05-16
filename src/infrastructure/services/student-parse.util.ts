@@ -226,13 +226,74 @@ export function parseAttendanceHistory(raw: unknown): AttendanceHistoryRow[] {
   return arr.map((item) => normalizeAttendanceHistoryRow(item as Record<string, unknown>));
 }
 
+function normalizeMakeupSessionRow(r: Record<string, unknown>): MakeupSessionRow {
+  const code = String(r.code ?? r.makeupCode ?? r.makeup_code ?? '');
+  const scheduled =
+    r.scheduledDate ?? r.makeupDate ?? r.makeup_date ?? r.scheduled_date;
+  return {
+    id: String(r.id),
+    code: code || undefined,
+    studentId: r.studentId != null ? String(r.studentId) : r.student_id != null ? String(r.student_id) : undefined,
+    studentName:
+      r.studentName != null
+        ? String(r.studentName)
+        : r.student_name != null
+          ? String(r.student_name)
+          : undefined,
+    studentCode:
+      r.studentCode != null
+        ? String(r.studentCode)
+        : r.student_code != null
+          ? String(r.student_code)
+          : undefined,
+    enrollmentId:
+      r.enrollmentId != null
+        ? String(r.enrollmentId)
+        : r.enrollment_id != null
+          ? String(r.enrollment_id)
+          : undefined,
+    originalSessionNo:
+      r.originalSessionNo != null
+        ? Number(r.originalSessionNo)
+        : r.original_session_no != null
+          ? Number(r.original_session_no)
+          : null,
+    originalDate:
+      r.originalDate != null
+        ? String(r.originalDate).slice(0, 10)
+        : r.original_date != null
+          ? String(r.original_date).slice(0, 10)
+          : null,
+    scheduledDate: scheduled != null ? String(scheduled).slice(0, 10) : undefined,
+    status: String(r.status ?? 'pending'),
+    roomId: r.roomId != null ? String(r.roomId) : r.room_id != null ? String(r.room_id) : undefined,
+    roomName:
+      r.roomName != null
+        ? String(r.roomName)
+        : r.room_name != null
+          ? String(r.room_name)
+          : undefined,
+    teacherId:
+      r.teacherId != null ? String(r.teacherId) : r.teacher_id != null ? String(r.teacher_id) : undefined,
+    teacherName:
+      r.teacherName != null
+        ? String(r.teacherName)
+        : r.teacher_name != null
+          ? String(r.teacher_name)
+          : undefined,
+  };
+}
+
 export function parseMakeupSessionsList(raw: unknown): MakeupSessionRow[] {
   const inner = unwrapBody(raw);
-  if (Array.isArray(inner)) return inner as MakeupSessionRow[];
-  if (inner && typeof inner === 'object' && Array.isArray((inner as { data?: unknown }).data)) {
-    return (inner as { data: MakeupSessionRow[] }).data;
-  }
-  return [];
+  const rows: unknown[] = Array.isArray(inner)
+    ? inner
+    : inner && typeof inner === 'object' && Array.isArray((inner as { data?: unknown }).data)
+      ? (inner as { data: unknown[] }).data
+      : [];
+  return rows.map((item) =>
+    normalizeMakeupSessionRow(item && typeof item === 'object' ? (item as Record<string, unknown>) : {}),
+  );
 }
 
 export function parsePauseRequestsList(raw: unknown): PauseRequestRow[] {
