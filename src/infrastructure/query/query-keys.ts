@@ -32,6 +32,7 @@ export const QUERY_KEYS = {
   },
 
   SESSIONS: {
+    center: (params: unknown) => ['sessions', 'center', params] as const,
     detail: (id: string) => ['sessions', 'detail', id] as const,
     availableCovers: (sessionId: string) => ['sessions', sessionId, 'available-covers'] as const,
     conflictCheck: (sessionId: string, date: string) =>

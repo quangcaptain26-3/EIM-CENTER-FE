@@ -33,6 +33,18 @@ function normalizeMySessionRow(r: Record<string, unknown>): MySessionRow {
     classId: String(r.classId ?? r.class_id ?? ''),
     classCode: r.classCode != null ? String(r.classCode) : r.class_code != null ? String(r.class_code) : undefined,
     className: r.className != null ? String(r.className) : r.class_name != null ? String(r.class_name) : undefined,
+    roomCode:
+      r.roomCode != null
+        ? String(r.roomCode)
+        : r.room_code != null
+          ? String(r.room_code)
+          : undefined,
+    roomName:
+      r.roomName != null
+        ? String(r.roomName)
+        : r.room_name != null
+          ? String(r.room_name)
+          : undefined,
     shiftLabel: r.shiftLabel != null ? String(r.shiftLabel) : r.shift_label != null ? String(r.shift_label) : undefined,
     roleType: r.roleType === 'cover' || r.role_type === 'cover' ? 'cover' : 'main',
     status: String(r.status ?? ''),
@@ -44,6 +56,24 @@ function normalizeMySessionRow(r: Record<string, unknown>): MySessionRow {
           : null,
     coverTeacherName:
       coverName === null || coverName === undefined ? null : coverName === '' ? null : String(coverName),
+    teacherName:
+      r.teacherName != null
+        ? String(r.teacherName)
+        : r.teacher_name != null
+          ? String(r.teacher_name)
+          : undefined,
+    mainTeacherId:
+      r.mainTeacherId != null
+        ? String(r.mainTeacherId)
+        : r.main_teacher_id != null
+          ? String(r.main_teacher_id)
+          : undefined,
+    mainTeacherName:
+      r.mainTeacherName != null
+        ? String(r.mainTeacherName)
+        : r.main_teacher_name != null
+          ? String(r.main_teacher_name)
+          : undefined,
   };
 }
 

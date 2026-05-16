@@ -19,12 +19,19 @@ export interface MySessionRow {
   classId: string;
   classCode?: string;
   className?: string;
+  /** Mã phòng (rooms.room_code) */
+  roomCode?: string;
+  roomName?: string;
   shiftLabel?: string;
   roleType: 'main' | 'cover';
   status: string;
   submittedAt?: string | null;
   /** Buổi chính đang có GV cover (status cover ≠ cancelled) — tên GV cover */
   coverTeacherName?: string | null;
+  /** GV đang dạy (cover nếu có, không thì GV chính) — lịch trung tâm */
+  teacherName?: string | null;
+  mainTeacherId?: string;
+  mainTeacherName?: string;
 }
 
 export interface AvailableCoverTeacher {

@@ -51,6 +51,8 @@ export async function rescheduleSession(
 
 /** month có thể là số hoặc chuỗi (YYYY-MM) tuỳ convention BE */
 export interface MySessionsParams {
+  /** YYYY-MM — ưu tiên khi gửi API */
+  monthKey?: string;
   month?: number | string;
   year?: number;
 }
@@ -60,6 +62,19 @@ export async function getMySessions(params: MySessionsParams): Promise<SessionRe
     params: compactParams(params as Record<string, unknown>),
   });
   return unwrapApiData<SessionResponse[]>(res);
+}
+
+export interface CenterSessionsParams extends MySessionsParams {
+  teacherId?: string;
+  classId?: string;
+}
+
+/** ADMIN / Học vụ — lịch buổi học toàn trung tâm */
+export async function getCenterSessions(params: CenterSessionsParams): Promise<unknown> {
+  const res = await apiClient.get('/sessions/calendar', {
+    params: compactParams(params as Record<string, unknown>),
+  });
+  return unwrapApiData(res);
 }
 
 export async function recordAttendance(

@@ -241,10 +241,10 @@ export const appRouteMetaList: AppRouteMeta[] = [
   },
   {
     key: 'my-sessions',
-    label: 'Buổi học của tôi',
+    label: 'Lịch dạy',
     path: RoutePaths.MY_SESSIONS,
     icon: 'calendar-check',
-    allowedRoles: [AppRoles.TEACHER],
+    allowedRoles: [AppRoles.TEACHER, AppRoles.ACADEMIC, AppRoles.ROOT, AppRoles.DIRECTOR],
     showInSidebar: true,
     showInBreadcrumb: true,
   },

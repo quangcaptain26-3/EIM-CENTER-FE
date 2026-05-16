@@ -1,5 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
-import { getAvailableCovers, getSession, getMySessions } from '@/infrastructure/services/sessions.api';
+import {
+  getAvailableCovers,
+  getCenterSessions,
+  getSession,
+  getMySessions,
+  type CenterSessionsParams,
+} from '@/infrastructure/services/sessions.api';
 import { getClassSessions } from '@/infrastructure/services/classes.api';
 import { QUERY_KEYS } from '@/infrastructure/query/query-keys';
 import {
@@ -28,15 +34,46 @@ export function useClassSessions(classId: string | undefined) {
   };
 }
 
-export interface MySessionsParams {
+export interface MySessionsHookParams {
   /** YYYY-MM — ưu tiên khi có */
   monthKey?: string;
   month?: number;
   year?: number;
+  enabled?: boolean;
+}
+
+/** ADMIN / Học vụ — lịch buổi toàn trung tâm */
+export function useCenterSessions(params: CenterSessionsParams & MySessionsHookParams) {
+  const apiParams: Record<string, unknown> = {};
+  if (params.monthKey) {
+    apiParams.month = params.monthKey;
+  } else if (params.month != null && params.year != null) {
+    apiParams.month = params.month;
+    apiParams.year = params.year;
+  }
+  if (params.teacherId) apiParams.teacherId = params.teacherId;
+  if (params.classId) apiParams.classId = params.classId;
+
+  const q = useQuery({
+    queryKey: QUERY_KEYS.SESSIONS.center(apiParams),
+    queryFn: () => getCenterSessions(apiParams as CenterSessionsParams),
+    enabled: (params.enabled ?? true) && Object.keys(apiParams).length > 0,
+    staleTime: STALE_SESSIONS_LIVE_MS,
+  });
+
+  const bundle = q.data ? parseMySessionsBundle(q.data) : { sessions: [], summary: undefined };
+
+  return {
+    sessions: bundle.sessions,
+    summary: bundle.summary,
+    isLoading: q.isLoading,
+    error: q.error,
+    refetch: q.refetch,
+  };
 }
 
 /** TEACHER — lịch buổi của tôi (tháng/năm hoặc monthKey) */
-export function useMySessions(params: MySessionsParams) {
+export function useMySessions(params: MySessionsHookParams) {
   const apiParams: Record<string, unknown> = {};
   if (params.monthKey) {
     apiParams.month = params.monthKey;
@@ -48,7 +85,7 @@ export function useMySessions(params: MySessionsParams) {
   const q = useQuery({
     queryKey: QUERY_KEYS.SESSIONS.my(apiParams),
     queryFn: () => getMySessions(apiParams),
-    enabled: Object.keys(apiParams).length > 0,
+    enabled: (params.enabled ?? true) && Object.keys(apiParams).length > 0,
     staleTime: STALE_SESSIONS_LIVE_MS,
   });
 

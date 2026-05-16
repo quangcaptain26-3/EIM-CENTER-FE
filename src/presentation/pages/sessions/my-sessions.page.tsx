@@ -4,15 +4,19 @@ import dayjs from 'dayjs';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Button } from '@/shared/ui/button';
 import { DataTable } from '@/shared/ui/data-table';
-import { useMySessions } from '@/presentation/hooks/sessions/use-sessions';
+import { useMySessions, useCenterSessions } from '@/presentation/hooks/sessions/use-sessions';
 import { getAttendanceStatus } from '@/infrastructure/services/sessions.api';
 import { RoutePaths } from '@/app/router/route-paths';
 import { formatDate, formatDateTime, isTodayUtc7, todayYmdUtc7 } from '@/shared/lib/date';
 import { SESSION_STATUS } from '@/shared/constants/statuses';
+import { ROLES } from '@/shared/constants/roles';
 import type { MySessionRow } from '@/shared/types/session.type';
 import { cn } from '@/shared/lib/cn';
 import { Tooltip } from '@/shared/ui/tooltip';
 import { attendanceDayBlockedTooltip } from '@/presentation/lib/attendance-access';
+import { useAuth } from '@/presentation/hooks/auth/use-auth';
+import { useUsers } from '@/presentation/hooks/system/use-users';
+import { SessionBadge } from '@/shared/ui/badge';
 
 /** Tuần bắt đầu Thứ 2 (locale VN) */
 function startOfWeekMonday(ref: dayjs.Dayjs): dayjs.Dayjs {
@@ -22,6 +26,20 @@ function startOfWeekMonday(ref: dayjs.Dayjs): dayjs.Dayjs {
 }
 
 const WEEKDAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] as const;
+
+function sessionRoomLabel(s: MySessionRow): string {
+  return s.roomCode ?? s.roomName ?? '—';
+}
+
+function sessionDetailHint(s: MySessionRow, isCenter: boolean): string {
+  const parts = [
+    s.classCode ?? s.className,
+    sessionRoomLabel(s) !== '—' ? `Phòng ${sessionRoomLabel(s)}` : null,
+    s.shiftLabel,
+    isCenter ? (s.teacherName ?? s.mainTeacherName) : null,
+  ].filter(Boolean);
+  return parts.join(' · ');
+}
 
 function pickSummary(s: Record<string, number> | undefined, sessions: MySessionRow[]) {
   if (s && Object.keys(s).length > 0) {
@@ -49,10 +67,34 @@ function pickSummary(s: Record<string, number> | undefined, sessions: MySessionR
 
 export default function MySessionsPage() {
   const navigate = useNavigate();
+  const { role } = useAuth();
+  const isCenterSchedule = role === ROLES.ADMIN || role === ROLES.ACADEMIC;
   const [month, setMonth] = useState(() => todayYmdUtc7().slice(0, 7));
-  const [view, setView] = useState<'week' | 'month' | 'list'>('list');
+  const [view, setView] = useState<'week' | 'month' | 'list'>(isCenterSchedule ? 'month' : 'list');
+  const [teacherFilter, setTeacherFilter] = useState('');
 
-  const { sessions, summary, isLoading, refetch } = useMySessions({ monthKey: month });
+  const myQ = useMySessions({ monthKey: month, enabled: !isCenterSchedule });
+  const centerQ = useCenterSessions({
+    monthKey: month,
+    teacherId: teacherFilter || undefined,
+    enabled: isCenterSchedule,
+  });
+  const { sessions, summary, isLoading, refetch } = isCenterSchedule ? centerQ : myQ;
+
+  const { users: teachers } = useUsers({
+    page: 1,
+    limit: 200,
+    role: ROLES.TEACHER,
+    isActive: true,
+  });
+
+  const teacherOptions = useMemo(
+    () => [
+      { value: '', label: 'Tất cả giáo viên' },
+      ...teachers.map((t) => ({ value: t.id, label: t.fullName })),
+    ],
+    [teachers],
+  );
 
   const stats = useMemo(() => pickSummary(summary, sessions), [summary, sessions]);
 
@@ -103,7 +145,8 @@ export default function MySessionsPage() {
   }, [month, sessions]);
 
   const listColumns: ColumnDef<MySessionRow>[] = useMemo(
-    () => [
+    () => {
+      const cols: ColumnDef<MySessionRow>[] = [
       {
         id: 'date',
         header: 'Ngày',
@@ -150,6 +193,35 @@ export default function MySessionsPage() {
         cell: ({ row }) => <span className="text-[var(--text-secondary)]">{row.original.shiftLabel ?? '—'}</span>,
       },
       {
+        id: 'room',
+        header: 'Phòng',
+        cell: ({ row }) => (
+          <span className="font-medium text-[var(--text-primary)]">{sessionRoomLabel(row.original)}</span>
+        ),
+      },
+      ];
+
+      if (isCenterSchedule) {
+        cols.push({
+          id: 'teacher',
+          header: 'Giáo viên',
+          cell: ({ row }) => {
+            const s = row.original;
+            return (
+              <div className="min-w-0">
+                <p className="truncate font-medium text-[var(--text-primary)]">
+                  {s.teacherName ?? s.mainTeacherName ?? '—'}
+                </p>
+                {s.coverTeacherName ? (
+                  <p className="truncate text-xs text-[var(--text-muted)]">Cover: {s.coverTeacherName}</p>
+                ) : null}
+              </div>
+            );
+          },
+        });
+      }
+
+      cols.push({
         id: 'role',
         header: 'Loại',
         cell: ({ row }) => (
@@ -157,8 +229,8 @@ export default function MySessionsPage() {
             className={cn(
               'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
               row.original.roleType === 'cover'
-                ? 'bg-amber-500/15 text-amber-300'
-                : 'bg-blue-500/15 text-blue-300',
+                ? 'bg-[var(--badge-paused-bg)] text-[var(--badge-paused-text)] border-[var(--badge-paused-border)]'
+                : 'bg-[var(--badge-trial-bg)] text-[var(--badge-trial-text)] border-[var(--badge-trial-border)]',
             )}
           >
             {row.original.roleType === 'cover' ? 'Cover' : 'Chính'}
@@ -168,19 +240,7 @@ export default function MySessionsPage() {
       {
         id: 'status',
         header: 'Trạng thái',
-        cell: ({ row }) => {
-          const submitted = Boolean(row.original.submittedAt);
-          return (
-            <span
-              className={cn(
-                'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
-                submitted ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-500/15 text-slate-300',
-              )}
-            >
-              {submitted ? 'Đã điểm danh' : 'Chưa điểm danh'}
-            </span>
-          );
-        },
+        cell: ({ row }) => <SessionBadge status={row.original.status} />,
       },
       {
         id: 'action',
@@ -188,9 +248,13 @@ export default function MySessionsPage() {
         cell: ({ row }) => {
           const s = row.original;
           const canAttendance =
-            isTodayUtc7(s.scheduledDate) && s.status === SESSION_STATUS.pending && !s.submittedAt;
+            !isCenterSchedule &&
+            isTodayUtc7(s.scheduledDate) &&
+            s.status === SESSION_STATUS.pending &&
+            !s.submittedAt;
           const canViewOnly = Boolean(s.submittedAt);
-          const dayBlocked = s.status === SESSION_STATUS.pending && !isTodayUtc7(s.scheduledDate);
+          const dayBlocked =
+            !isCenterSchedule && s.status === SESSION_STATUS.pending && !isTodayUtc7(s.scheduledDate);
           return (
             <div className="flex flex-wrap justify-end gap-2">
               {canAttendance ? (
@@ -245,16 +309,41 @@ export default function MySessionsPage() {
             </div>
           );
         },
-      },
-    ],
-    [navigate],
+      });
+
+      return cols;
+    },
+    [navigate, isCenterSchedule],
   );
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-lg font-semibold text-[var(--text-primary)]">Lịch dạy của tôi</h1>
+        <div>
+          <h1 className="text-lg font-semibold text-[var(--text-primary)]">
+            {isCenterSchedule ? 'Lịch dạy trung tâm' : 'Lịch dạy của tôi'}
+          </h1>
+          {isCenterSchedule ? (
+            <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
+              Tất cả buổi học trong tháng — lọc theo giáo viên nếu cần
+            </p>
+          ) : null}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
+          {isCenterSchedule ? (
+            <select
+              className="h-9 min-w-[200px] rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 text-sm text-[var(--text-primary)]"
+              value={teacherFilter}
+              onChange={(e) => setTeacherFilter(e.target.value)}
+              aria-label="Lọc giáo viên"
+            >
+              {teacherOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          ) : null}
           <input
             type="month"
             className="rounded-lg border border-[var(--border-default)] bg-[var(--bg-surface)] px-2 py-1.5 text-sm text-[var(--text-primary)] shadow-sm"
@@ -316,7 +405,7 @@ export default function MySessionsPage() {
           page={1}
           pageSize={Math.max(sortedSessions.length, 1)}
           onPageChange={() => {}}
-          emptyMessage="Không có buổi dạy trong tháng."
+          emptyMessage={isCenterSchedule ? 'Không có buổi học trong tháng.' : 'Không có buổi dạy trong tháng.'}
           getRowId={(r) => r.id}
         />
       ) : view === 'month' ? (
@@ -345,19 +434,23 @@ export default function MySessionsPage() {
                   )}
                 >
                   <div className="text-xs font-medium text-[var(--text-secondary)]">{dayjs(date).date()}</div>
-                  <div className="mt-1 flex flex-wrap gap-0.5">
-                    {items.slice(0, 4).map((s) => (
-                      <span
+                  <div className="mt-1 space-y-0.5">
+                    {items.slice(0, 3).map((s) => (
+                      <button
                         key={s.id}
-                        title={s.classCode ?? s.className}
-                        className={cn(
-                          'size-1.5 rounded-full',
-                          s.roleType === 'cover' ? 'bg-amber-400' : 'bg-blue-400',
-                        )}
-                      />
+                        type="button"
+                        onClick={() => navigate(RoutePaths.SESSION_DETAIL.replace(':sessionId', s.id))}
+                        className="block w-full truncate rounded px-0.5 text-left text-[9px] font-medium text-[var(--text-secondary)] hover:text-brand-400"
+                        title={sessionDetailHint(s, isCenterSchedule)}
+                      >
+                        <span className="block truncate">{s.classCode ?? 'Lớp'}</span>
+                        <span className="block truncate text-[8px] font-normal text-[var(--text-muted)]">
+                          {sessionRoomLabel(s)}
+                        </span>
+                      </button>
                     ))}
-                    {items.length > 4 ? (
-                      <span className="text-[9px] text-[var(--text-muted)]">+{items.length - 4}</span>
+                    {items.length > 3 ? (
+                      <span className="text-[9px] text-[var(--text-muted)]">+{items.length - 3} buổi</span>
                     ) : null}
                   </div>
                 </div>
@@ -403,7 +496,16 @@ export default function MySessionsPage() {
                         <p className="truncate font-medium text-[var(--text-primary)]">
                           {s.classCode ?? s.className ?? 'Lớp'}
                         </p>
-                        <p className="truncate text-[10px] text-[var(--text-muted)]">{s.shiftLabel ?? '—'}</p>
+                        <p className="truncate text-[10px] text-[var(--text-muted)]">
+                          {s.shiftLabel ?? '—'}
+                          {' · '}
+                          <span className="text-[var(--text-secondary)]">Phòng {sessionRoomLabel(s)}</span>
+                        </p>
+                        {isCenterSchedule && (s.teacherName ?? s.mainTeacherName) ? (
+                          <p className="truncate text-[10px] text-[var(--text-secondary)]">
+                            {s.teacherName ?? s.mainTeacherName}
+                          </p>
+                        ) : null}
                         <span
                           className={cn(
                             'mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-medium',
