@@ -151,7 +151,7 @@ export function CoverModal({
             ) : (
               sortedTeachers.map((t) => {
                 const unavailable = t.isConflict === true || t.isAvailable === false;
-                const active = pickedId === t.userId && !unavailable;
+                const active = Boolean(pickedId) && pickedId === t.userId && !unavailable;
                 const tooltipText = unavailable
                   ? `Trùng lịch: ${t.conflictReason ?? 'Không khả dụng'}`
                   : '';

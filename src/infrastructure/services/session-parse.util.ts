@@ -88,7 +88,7 @@ export function parseAvailableCovers(raw: unknown): AvailableCoverTeacher[] {
 
   return arr.map((item) => {
     const o = item as Record<string, unknown>;
-    const userId = String(o.userId ?? o.user_id ?? '');
+    const userId = String(o.userId ?? o.user_id ?? o.id ?? '');
     const fullName = String(o.fullName ?? o.full_name ?? '');
     const isAvailable =
       o.isAvailable !== undefined && o.isAvailable !== null
